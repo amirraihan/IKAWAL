@@ -1,4 +1,6 @@
 import asyncio
+import csv
+import io
 import json
 import logging
 import os
@@ -11,13 +13,15 @@ from urllib.parse import urlsplit
 
 import httpx
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from typing import Literal
 
 from . import store
 from .agent import answer
+from .pdf import table_pdf
 from .reman import summarize
+from .xlsx import dumps as xlsx_dumps
 
 ROOT = Path(__file__).resolve().parent.parent
 MODELS = ('deepseek-ai/deepseek-v4.1-flash', 'qwen2.5:32b', 'gpt-oss:20b', 'llama3.2:3b')
@@ -160,11 +164,7 @@ def create_app(settings=None, transport=None):
         data = summarize(cases)
         return {'file': path.name, 'generated': today.isoformat(), **data}
 
-    @app.get('/api/uc2/cases')
-    async def uc2_cases(request: Request):
-        today = date.today()
-        path, cases = register(today)
-        active = filters(request)
+    def select(cases, active):
         selected = []
         for case in cases:
             if active['label'] and case.label != active['label']:
@@ -181,11 +181,75 @@ def create_app(settings=None, transport=None):
                 continue
             selected.append(case)
         selected.sort(key=lambda c: (-c.score, c.hari_berbaki if c.hari_berbaki is not None else 9999, c.no_reman))
+        return selected
+
+    @app.get('/api/uc2/cases')
+    async def uc2_cases(request: Request):
+        today = date.today()
+        path, cases = register(today)
+        selected = select(cases, filters(request))
         try:
             limit = max(1, min(int(request.query_params.get('limit', '200')), 1000))
         except ValueError:
             raise HTTPException(422, 'limit must be a whole number.')
         return {'file': path.name, 'generated': today.isoformat(), 'total': len(selected), 'shown': min(limit, len(selected)), 'cases': [c.to_public() for c in selected[:limit]]}
+
+    EXPORT_COLUMNS = [
+        ('no_reman', 'NO.REMAN'), ('nama', 'Nama'), ('jantina', 'Jantina'), ('umur', 'Umur'),
+        ('warganegara', 'Warganegara'), ('depot', 'Depot'), ('nama_pegawai', 'Pegawai'), ('fail', 'Fail'),
+        ('tarikh_reman_mula', 'Reman Mula'), ('tarikh_reman_tamat', 'Reman Tamat'), ('tempoh_reman', 'Tempoh (hari)'),
+        ('hari_berbaki', 'Hari Berbaki'), ('status_reman', 'Status'), ('tindakan_raw', 'Tindakan'),
+        ('akta', 'Akta'), ('seksyen', 'Seksyen'), ('label', 'Keutamaan'), ('score', 'Skor'),
+        ('reasons', 'Sebab'), ('action', 'Tindakan Disyorkan'),
+    ]
+    PDF_COLUMNS = ['NO.REMAN', 'Nama', 'Depot', 'Pegawai', 'Tamat', 'Hari', 'Status', 'Keutamaan', 'Skor', 'Tindakan Disyorkan']
+    PDF_WEIGHTS = [56, 74, 34, 62, 52, 26, 52, 46, 26, 180]
+
+    def export_rows(selected):
+        table = [['NO.REMAN', 'Nama', 'Jantina', 'Umur', 'Warganegara', 'Depot', 'Pegawai', 'Fail', 'Reman Mula', 'Reman Tamat', 'Tempoh (hari)', 'Hari Berbaki', 'Status', 'Tindakan', 'Akta', 'Seksyen', 'Keutamaan', 'Skor', 'Sebab', 'Tindakan Disyorkan']]
+        for case in selected:
+            public = case.to_public()
+            record = dict(public)
+            record['reasons'] = '; '.join(public['reasons'])
+            table.append([record[key] for key, _ in EXPORT_COLUMNS])
+        return table
+
+    def export_name(today, suffix):
+        return f'uc2_priority_worklist_{today.isoformat()}{suffix}'
+
+    @app.get('/api/uc2/export.xlsx')
+    async def uc2_export_xlsx(request: Request):
+        today = date.today()
+        _path, cases = register(today)
+        table = export_rows(select(cases, filters(request)))
+        body = xlsx_dumps(table, sheet='UC2 Worklist')
+        return Response(content=body, media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', headers={'Content-Disposition': f'attachment; filename="{export_name(today, ".xlsx")}"'})
+
+    @app.get('/api/uc2/export.csv')
+    async def uc2_export_csv(request: Request):
+        today = date.today()
+        _path, cases = register(today)
+        buffer = io.StringIO()
+        writer = csv.writer(buffer)
+        writer.writerows(export_rows(select(cases, filters(request))))
+        return Response(content=buffer.getvalue(), media_type='text/csv; charset=utf-8', headers={'Content-Disposition': f'attachment; filename="{export_name(today, ".csv")}"'})
+
+    @app.get('/api/uc2/export.pdf')
+    async def uc2_export_pdf(request: Request):
+        today = date.today()
+        path, cases = register(today)
+        selected = select(cases, filters(request))
+        active = filters(request)
+        scope = active['label'] or 'Semua keutamaan'
+        if active['depot']:
+            scope += f" / {active['depot']}"
+        subtitle = f'SmartDepot UC-2 - {len(selected)} kes - {scope} - register {path.name} - {today.isoformat()}'
+        rows = []
+        for case in selected:
+            public = case.to_public()
+            rows.append([public['no_reman'], public['nama'], public['depot'], public['nama_pegawai'], public['tarikh_reman_tamat'], public['hari_berbaki'], public['status_reman'], public['label'], public['score'], public['action']])
+        body = table_pdf('Priority Worklist - Case Decision Support', subtitle, PDF_COLUMNS, rows, PDF_WEIGHTS)
+        return Response(content=body, media_type='application/pdf', headers={'Content-Disposition': f'attachment; filename="{export_name(today, ".pdf")}"'})
 
     @app.get('/api/uc2/case/{no_reman}')
     async def uc2_case(no_reman: str):

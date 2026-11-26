@@ -79,12 +79,25 @@ function renderCases(data) {
     tableBody.append(row);
   }
 }
-async function loadWorklist() {
-  uc2Status.textContent = 'Refreshing cases…';
+function filterParams() {
   const params = new URLSearchParams();
   if (labelFilter.value) params.set('label', labelFilter.value);
   if (depotFilter.value) params.set('depot', depotFilter.value);
   if (openFilter.checked) params.set('open', '1');
+  return params;
+}
+function exportWorklist(format) {
+  const link = document.createElement('a');
+  link.href = `/api/uc2/export.${format}?` + filterParams().toString();
+  link.download = '';
+  document.body.append(link);
+  link.click();
+  link.remove();
+  uc2Status.textContent = `Preparing the ${format.toUpperCase()} export…`;
+}
+async function loadWorklist() {
+  uc2Status.textContent = 'Refreshing cases…';
+  const params = filterParams();
   try {
     const [summaryResponse, casesResponse] = await Promise.all([
       fetch('/api/uc2/summary'),
@@ -112,6 +125,8 @@ document.querySelector('#uc2-refresh').addEventListener('click', loadWorklist);
 labelFilter.addEventListener('change', loadWorklist);
 depotFilter.addEventListener('change', loadWorklist);
 openFilter.addEventListener('change', loadWorklist);
+document.querySelector('#uc2-export-xlsx').addEventListener('click', () => exportWorklist('xlsx'));
+document.querySelector('#uc2-export-pdf').addEventListener('click', () => exportWorklist('pdf'));
 
 // --- Assistant chat ---------------------------------------------------------
 function message(role, text) {

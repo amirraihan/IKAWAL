@@ -8,6 +8,7 @@ It does not evaluate formulas or write files.
 """
 from __future__ import annotations
 
+import io
 import re
 import zipfile
 from pathlib import Path
@@ -29,6 +30,16 @@ def _column_index(reference: str) -> int:
     for char in match.group(1):
         index = index * 26 + (ord(char) - ord('A') + 1)
     return index - 1
+
+
+def _column_letter(index: int) -> str:
+    """Return the A1-style column letters for a zero-based index."""
+    letters = ''
+    index += 1
+    while index:
+        index, remainder = divmod(index - 1, 26)
+        letters = chr(ord('A') + remainder) + letters
+    return letters
 
 
 def _shared_strings(archive: zipfile.ZipFile) -> list[str]:
@@ -108,3 +119,73 @@ def read_rows(path: str | Path, sheet: str | None = None, limit: int | None = No
             if limit is not None and len(rows) >= limit:
                 break
     return rows
+
+
+_XLSX_PREFIX = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+_CONTENT_TYPES = (
+    _XLSX_PREFIX
+    + '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+    '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+    '<Default Extension="xml" ContentType="application/xml"/>'
+    '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+    '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+    '</Types>'
+)
+_ROOT_RELS = (
+    _XLSX_PREFIX
+    + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+    '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>'
+    '</Relationships>'
+)
+_WORKBOOK_RELS = (
+    _XLSX_PREFIX
+    + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+    '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>'
+    '</Relationships>'
+)
+
+
+def _xml(value) -> str:
+    text = '' if value is None else str(value)
+    return (
+        text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+        .replace('"', '&quot;').replace("'", '&apos;')
+    )
+
+
+def dumps(rows, sheet: str = 'Sheet1', freeze_header: bool = True) -> bytes:
+    """Serialise a rectangular table to .xlsx bytes (inline strings, one sheet).
+
+    Numbers (int/float) become numeric cells so totals and sorting work in Excel;
+    everything else becomes a string cell. No styles are written.
+    """
+    cells = []
+    for row_index, row in enumerate(rows, start=1):
+        parts = []
+        for column_index, value in enumerate(row):
+            if value is None or value == '':
+                continue
+            reference = f'{_column_letter(column_index)}{row_index}'
+            if isinstance(value, bool):
+                parts.append(f'<c r="{reference}" t="b"><v>{1 if value else 0}</v></c>')
+            elif isinstance(value, (int, float)):
+                parts.append(f'<c r="{reference}"><v>{value}</v></c>')
+            else:
+                parts.append(f'<c r="{reference}" t="inlineStr"><is><t xml:space="preserve">{_xml(value)}</t></is></c>')
+        cells.append(f'<row r="{row_index}">' + ''.join(parts) + '</row>')
+    pane = '<sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>' if freeze_header else ''
+    sheet_xml = f'{_XLSX_PREFIX}<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">{pane}<sheetData>' + ''.join(cells) + '</sheetData></worksheet>'
+    workbook_xml = (
+        _XLSX_PREFIX
+        + '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
+        'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+        f'<sheets><sheet name="{_xml(sheet)[:31]}" sheetId="1" r:id="rId1"/></sheets></workbook>'
+    )
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr('[Content_Types].xml', _CONTENT_TYPES)
+        archive.writestr('_rels/.rels', _ROOT_RELS)
+        archive.writestr('xl/workbook.xml', workbook_xml)
+        archive.writestr('xl/_rels/workbook.xml.rels', _WORKBOOK_RELS)
+        archive.writestr('xl/worksheets/sheet1.xml', sheet_xml)
+    return buffer.getvalue()

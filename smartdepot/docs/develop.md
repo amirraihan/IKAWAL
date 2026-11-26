@@ -42,7 +42,8 @@ python scripts/validate.py --helm helm
 | `app/agent.py` | LiteLLM request, message history and bounded read-only report and UC-2 case tools. |
 | `app/reman.py` | UC-2 rule engine: countdown, risk score, label, recommended action, name masking (no I/O). |
 | `app/store.py` | Locate the reman register and build scored cases, cached by file mtime. |
-| `app/xlsx.py` | Standard-library, read-only `.xlsx` reader (no pandas/openpyxl runtime dependency). |
+| `app/xlsx.py` | Standard-library, read-only `.xlsx` reader plus a small `.xlsx` writer for exports. |
+| `app/pdf.py` | Standard-library PDF table writer (base-14 Helvetica) for the worklist export. |
 | `app/static/` | Browser messages, the UC-2 priority worklist, loading/errors and Markdown export. No build tool required. |
 | `scripts/workshop.py` | Setup wizard, private settings, image build, Secret creation and chart preparation. |
 | `deploy/chart/` | Resources, auth proxy, route and pod network boundaries. |

@@ -51,6 +51,10 @@ How it works:
 - `app/store.py` locates the workbook and builds scored cases (cached by file mtime).
 - `app/main.py` serves `GET /api/uc2/summary`, `GET /api/uc2/cases` (filters `label`, `depot`,
   `officer`, `status`, `q`, `open`, `limit`) and `GET /api/uc2/case/{NO.REMAN}`.
+- The current filtered view can be downloaded as **Excel** (`/api/uc2/export.xlsx`), **PDF**
+  (`/api/uc2/export.pdf`) or CSV (`/api/uc2/export.csv`), using the *Export Excel* / *Export PDF*
+  buttons. `app/xlsx.py` and `app/pdf.py` write both formats with the standard library only; names
+  stay masked and `CATATAN` is never included.
 - `app/agent.py` exposes `reman_summary`, `list_priority_cases` and `get_case` to tool-capable models.
   Names are masked and `CATATAN` is never returned.
 

@@ -6,6 +6,7 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from app import store, xlsx
+from app import pdf
 from app.agent import execute_tool
 from app.main import Settings, create_app
 from app.reman import (
@@ -231,3 +232,57 @@ def test_uc2_agent_tools_are_read_only_and_masked(tmp_path):
 
 def test_priority_tool_without_register_is_unavailable():
     assert 'error' in execute_tool('list_priority_cases', '{}')
+
+
+# --------------------------------------------------------------------------- exports
+def test_xlsx_writer_round_trips(tmp_path):
+    body = xlsx.dumps([['NO.REMAN', 'Skor'], ['26(1)BD', 55], ['26(2)BD', 15]])
+    path = tmp_path / 'out.xlsx'
+    path.write_bytes(body)
+    rows = xlsx.read_rows(path)
+    assert rows[0] == ['NO.REMAN', 'Skor']
+    assert rows[1] == ['26(1)BD', '55']
+    assert rows[2] == ['26(2)BD', '15']
+
+
+def test_table_pdf_has_valid_scaffolding():
+    body = pdf.table_pdf('Title', 'subtitle', ['A', 'B'], [['1', '2'], ['3', '4']], [1, 2])
+    assert body.startswith(b'%PDF-1.4')
+    assert body.rstrip().endswith(b'%%EOF')
+    assert b'/Type /Page' in body and b'/Count 1' in body
+    assert b'startxref' in body
+
+
+def test_table_pdf_paginates_and_transliterates():
+    rows = [[f'CASE-{i}', 'tamat \u2264 3 hari'] for i in range(120)]
+    body = pdf.table_pdf('T', 's', ['A', 'B'], rows, [1, 1])
+    assert body.count(b'/Type /Page') >= 2  # 120 rows cannot fit on one page
+    assert b'<= 3 hari' in body and b'\xe2\x89\xa4' not in body
+
+
+def test_uc2_export_endpoints(tmp_path):
+    path = write_xlsx(tmp_path / 'reman.xlsx', HEADER, register_rows())
+    with client_for(path) as client:
+        book = client.get('/api/uc2/export.xlsx?open=1')
+        assert book.status_code == 200
+        assert 'spreadsheet' in book.headers['content-type']
+        assert 'attachment' in book.headers['content-disposition']
+        saved = tmp_path / 'download.xlsx'
+        saved.write_bytes(book.content)
+        rows = xlsx.read_rows(saved)
+        assert rows[0][:3] == ['NO.REMAN', 'Nama', 'Jantina']
+        assert any(row and row[0] == '26(01)BD' for row in rows)
+
+        doc = client.get('/api/uc2/export.pdf?open=1')
+        assert doc.status_code == 200
+        assert doc.headers['content-type'] == 'application/pdf'
+        assert doc.content.startswith(b'%PDF')
+
+        sheet = client.get('/api/uc2/export.csv?open=1')
+        assert sheet.status_code == 200
+        assert 'text/csv' in sheet.headers['content-type']
+        lines = sheet.text.splitlines()
+        assert lines[0].startswith('NO.REMAN')
+        # masked names, and CATATAN never leaves the server
+        assert 'AHMAD ALI' not in sheet.text and 'TANGKAP SEMULA' not in sheet.text
+        assert 'A**** A**' in sheet.text
