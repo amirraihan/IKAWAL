@@ -125,6 +125,26 @@
   .officer .obar span{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,var(--blue),var(--teal));}
   .officer .otag{position:absolute;top:12px;right:12px;font-size:.62rem;font-weight:800;letter-spacing:.6px;padding:4px 9px;border-radius:999px;background:#FEF3E2;color:#B9720A;}
   .officer.top .otag{background:rgba(255,255,255,.22);color:#fff;}
+
+  /* ================= SUPERVISOR TABLE ================= */
+  .off-controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px;}
+  .off-controls select.sel{min-width:260px;}
+  #officerTable{width:100%;min-width:0;border-collapse:separate;border-spacing:0;font-size:.84rem;}
+  #officerTable thead th{position:static;background:linear-gradient(120deg,#0A1E3F,#12305F);color:#DCE8F8;
+    text-align:left;font-weight:700;font-size:.68rem;letter-spacing:.5px;text-transform:uppercase;
+    padding:12px;white-space:nowrap;border-bottom:1px solid #1B4079;}
+  #officerTable tbody td{padding:11px 12px;border-bottom:1px solid var(--line);color:#243856;
+    vertical-align:middle;background:#fff;box-shadow:none;position:static;white-space:nowrap;}
+  #officerTable tbody tr:nth-child(even) td{background:#FAFCFF;}
+  #officerTable tbody tr:hover td{background:#EFF6FF;}
+  #officerTable td:first-child,#officerTable th:first-child{position:static;left:auto;box-shadow:none;}
+  #officerTable th.ctr,#officerTable td.cnt,#officerTable td.pct{text-align:center;}
+  #officerTable td.cnt{font-weight:800;color:var(--navy2);}
+  #officerTable td.pct{font-weight:700;color:var(--muted);}
+  #officerTable .off-name{font-weight:700;color:var(--navy);}
+  #officerTable th.barcol{width:38%;}
+  .off-bar{height:11px;border-radius:99px;background:#EAF0F8;overflow:hidden;min-width:120px;}
+  .off-bar span{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,var(--green),var(--teal2));}
   .toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px;}
   .search{position:relative;flex:1;min-width:220px;}
   .search input{width:100%;border:1px solid var(--line);border-radius:11px;padding:10px 14px 10px 38px;font-size:.85rem;font-family:inherit;background:#FBFDFF;outline:none;transition:.16s;}
@@ -269,9 +289,7 @@
       <span class="sub">Gambaran keseluruhan profil tahanan</span>
     </div>
     <div class="charts">
-      <div class="chart-card"><h3><span class="dt"></span>Jantina</h3><div class="cwrap"><canvas id="cGender"></canvas></div></div>
-      <div class="chart-card"><h3><span class="dt"></span>Bangsa</h3><div class="cwrap"><canvas id="cBangsa"></canvas></div></div>
-      <div class="chart-card"><h3><span class="dt"></span>Depot — Papar vs Kota Kinabalu</h3><div class="cwrap"><canvas id="cDepot"></canvas></div></div>
+      <div class="chart-card"><h3><span class="dt"></span>Warganegara</h3><div class="cwrap"><canvas id="cWarga"></canvas></div></div>
       <div class="chart-card"><h3><span class="dt"></span>Jenis Kesalahan</h3><div class="cwrap"><canvas id="cKes"></canvas></div></div>
     </div>
   </section>
@@ -279,10 +297,29 @@
   <section class="panel" id="supervisorPanel">
     <div class="panel-head">
       <h2><span>👁️</span> Supervisor View — Beban Kerja Pegawai</h2>
-      <span class="sub">Klik nama pegawai untuk lihat fail beliau sahaja</span>
+      <span class="sub">Pilih pegawai pada menu atau taip nama untuk tapis jadual</span>
       <span class="pill-count" id="officerCount"></span>
     </div>
-    <div class="officers" id="officerGrid"></div>
+    <div class="off-controls">
+      <select class="sel" id="officerSelect"><option value="">Semua Pegawai</option></select>
+      <div class="search">
+        <span class="si">🔍</span>
+        <input type="text" id="officerSearch" placeholder="Carian nama pegawai…" />
+      </div>
+    </div>
+    <div class="table-scroll" style="max-height:none">
+      <table id="officerTable">
+        <thead>
+          <tr>
+            <th>Nama Pegawai</th>
+            <th class="ctr">Jumlah Fail</th>
+            <th class="ctr">Peratus dari Total</th>
+            <th class="barcol">Bar Beban Kerja</th>
+          </tr>
+        </thead>
+        <tbody id="officerTbody"></tbody>
+      </table>
+    </div>
   </section>
 
   <section class="panel" id="tablePanel">
@@ -604,30 +641,37 @@ function renderChips(){
 }
 function renderOfficers(){
   const arr = DATA.officers || [];
+  const total = DATA.all_count || 0;
   const max = arr.length ? arr[0].count : 0;
   $("officerCount").textContent = arr.length + " pegawai";
-  const grid = $("officerGrid");
-  if(!arr.length){ grid.innerHTML = '<div class="empty-state"><div class="e">🧑‍💼</div><p>Tiada pegawai. Tambah data dahulu.</p></div>'; return; }
-  grid.innerHTML = arr.map((o,i) => {
-    const pct = max ? Math.round(o.count/max*100) : 0;
-    const isTop = i===0 && max>0;
-    const active = state.officer === o.name ? " active" : "";
-    let initials = o.name.replace(/[^A-Za-z ]/g,"").trim().split(/\s+/).slice(0,2).map(w => w[0]||"").join("").toUpperCase() || "?";
-    return '<div class="officer'+(isTop?" top":"")+active+'" data-officer="'+esc(o.name)+'">'+
-      (isTop?'<span class="otag">PALING BANYAK</span>':'')+
-      '<div class="otop"><div class="oavatar">'+esc(initials)+'</div>'+
-      '<div><div class="oname">'+esc(o.name)+'</div><div class="orole">Pegawai Penyiasat</div></div></div>'+
-      '<div class="onum">'+o.count+' <small>fail</small></div>'+
-      '<div class="obar"><span style="width:'+pct+'%"></span></div></div>';
-  }).join("");
-  grid.querySelectorAll(".officer").forEach(el => {
-    el.onclick = () => {
-      const name = el.getAttribute("data-officer");
-      state.officer = (state.officer === name) ? null : name;
-      refresh();
-      $("tablePanel").scrollIntoView({behavior:"smooth",block:"start"});
-    };
-  });
+
+  const sel = $("officerSelect");
+  const cur = state.officer || "";
+  sel.innerHTML = '<option value="">Semua Pegawai</option>' + arr.map(o =>
+    '<option value="'+esc(o.name)+'">'+esc(o.name)+' ('+o.count+')</option>').join("");
+  sel.value = cur;
+
+  const q = ($("officerSearch").value || "").trim().toLowerCase();
+  let list = arr;
+  if(state.officer){ list = arr.filter(o => o.name === state.officer); }
+  if(q){ list = list.filter(o => o.name.toLowerCase().includes(q)); }
+
+  const tb = $("officerTbody");
+  if(!list.length){
+    tb.innerHTML = '<tr><td colspan="4"><div class="empty-state"><div class="e">🧑‍💼</div><p>Tiada pegawai dijumpai.</p></div></td></tr>';
+  } else {
+    tb.innerHTML = list.map(o => {
+      const pct = total ? Math.round(o.count/total*1000)/10 : 0;
+      const bar = max ? Math.round(o.count/max*100) : 0;
+      return '<tr>'+
+        '<td class="off-name">'+esc(o.name)+'</td>'+
+        '<td class="cnt">'+o.count+'</td>'+
+        '<td class="pct">'+pct+'%</td>'+
+        '<td class="barcol"><div class="off-bar"><span style="width:'+bar+'%"></span></div></td>'+
+      '</tr>';
+    }).join("");
+  }
+
   const of = $("officerFilter");
   if(state.officer){ of.classList.add("on"); $("ofName").textContent = state.officer; } else of.classList.remove("on");
 }
@@ -712,24 +756,30 @@ function makeChart(id, cfg){
   if(charts[id]) charts[id].destroy();
   charts[id] = new Chart(el.getContext("2d"), cfg);
 }
+function countBy(list, key){
+  const m = {};
+  list.forEach(r => { const v = (r[key]||"-")||"-"; m[v] = (m[v]||0)+1; });
+  return m;
+}
 function renderCharts(){
-  if(typeof Chart === "undefined" || !DATA.charts) return;
+  if(typeof Chart === "undefined") return;
+  // carta ikut penapis semasa (chip / carian / pegawai)
+  const R = DATA.records || [];
   Chart.defaults.font.family = "'Plus Jakarta Sans', system-ui, sans-serif";
   Chart.defaults.color = "#5C6E8A"; Chart.defaults.font.size = 12;
-  const c = DATA.charts;
-  makeChart("cGender", { type:"doughnut",
-    data:{ labels:["Lelaki","Perempuan"], datasets:[{ data:[c.jantina["Lelaki"]||0, c.jantina["Perempuan"]||0], backgroundColor:["#1D6FE0","#0FB5A6"], borderWidth:3, borderColor:"#fff", hoverOffset:6 }] },
-    options:{ responsive:true, maintainAspectRatio:false, cutout:"58%", plugins:{ legend:{ position:"bottom", labels:{ boxWidth:12, padding:14, font:{weight:"600"} } } } } });
-  const bKeys = Object.keys(c.bangsa).sort((a,b) => c.bangsa[b]-c.bangsa[a]);
-  makeChart("cBangsa", { type:"bar",
-    data:{ labels:bKeys.length?bKeys:["-"], datasets:[{ data:bKeys.length?bKeys.map(k => c.bangsa[k]):[0], backgroundColor:bKeys.map((_,i) => PALETTE[i%PALETTE.length]), borderRadius:7, maxBarThickness:46 }] },
-    options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{display:false} }, scales:{ y:{ beginAtZero:true, ticks:{precision:0}, grid:{color:"#EEF3FA"} }, x:{grid:{display:false}} } } });
-  makeChart("cDepot", { type:"bar",
-    data:{ labels:["Papar","Kota Kinabalu"], datasets:[{ data:[c.depot["Papar"]||0, c.depot["Kota Kinabalu"]||0], backgroundColor:["#0FB5A6","#1D6FE0"], borderRadius:7, maxBarThickness:70 }] },
-    options:{ responsive:true, maintainAspectRatio:false, indexAxis:"y", plugins:{ legend:{display:false} }, scales:{ x:{beginAtZero:true,ticks:{precision:0},grid:{color:"#EEF3FA"}}, y:{grid:{display:false}} } } });
-  const kKeys = Object.keys(c.kesalahan).sort((a,b) => c.kesalahan[b]-c.kesalahan[a]);
+
+  // Warganegara (doughnut)
+  const wMap = countBy(R, "warganegara");
+  const wKeys = Object.keys(wMap).sort((a,b) => wMap[b]-wMap[a]);
+  makeChart("cWarga", { type:"doughnut",
+    data:{ labels:wKeys.length?wKeys:["-"], datasets:[{ data:wKeys.length?wKeys.map(k => wMap[k]):[0], backgroundColor:wKeys.map((_,i) => PALETTE[i%PALETTE.length]), borderWidth:3, borderColor:"#fff", hoverOffset:6 }] },
+    options:{ responsive:true, maintainAspectRatio:false, cutout:"55%", plugins:{ legend:{ position:"bottom", labels:{ boxWidth:12, padding:8, font:{weight:"600", size:11} } } } } });
+
+  // Jenis Kesalahan (bar)
+  const kMap = countBy(R, "jenis_kesalahan");
+  const kKeys = Object.keys(kMap).sort((a,b) => kMap[b]-kMap[a]);
   makeChart("cKes", { type:"bar",
-    data:{ labels:kKeys.length?kKeys:["-"], datasets:[{ data:kKeys.length?kKeys.map(k => c.kesalahan[k]):[0], backgroundColor:kKeys.map((_,i) => PALETTE[(i+1)%PALETTE.length]), borderRadius:7, maxBarThickness:46 }] },
+    data:{ labels:kKeys.length?kKeys:["-"], datasets:[{ data:kKeys.length?kKeys.map(k => kMap[k]):[0], backgroundColor:kKeys.map((_,i) => PALETTE[(i+1)%PALETTE.length]), borderRadius:7, maxBarThickness:46 }] },
     options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{display:false} }, scales:{ y:{beginAtZero:true,ticks:{precision:0},grid:{color:"#EEF3FA"}}, x:{grid:{display:false}} } } });
 }
 
@@ -945,6 +995,8 @@ $("searchInput").addEventListener("input", (e) => { state.search = e.target.valu
 $("sortSel").addEventListener("change", (e) => { state.sort = e.target.value; refresh(); });
 document.querySelectorAll("#chipRow .chip").forEach(ch => { ch.onclick = () => setFilter(ch.getAttribute("data-f")); });
 $("ofClear").onclick = () => { state.officer = null; refresh(); };
+$("officerSelect").addEventListener("change", (e) => { state.officer = e.target.value || null; refresh(); });
+$("officerSearch").addEventListener("input", () => { renderOfficers(); });
 
 /* ---------- init ---------- */
 (async function init(){
