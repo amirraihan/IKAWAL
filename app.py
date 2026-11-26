@@ -23,6 +23,7 @@ import io
 import os
 import re
 import sqlite3
+import sys
 import uuid
 from functools import wraps
 
@@ -34,6 +35,7 @@ from flask import (
     render_template,
     request,
     send_file,
+    send_from_directory,
     session,
     url_for,
 )
@@ -113,7 +115,13 @@ REC_FIELDS = [
     "nama", "jantina", "umur", "bangsa", "warganegara", "jenis_kesalahan",
     "nombor_reman", "nombor_fail", "depot", "pegawai", "tarikh_tamat_reman",
     "tindakan", "surat_rayuan", "tarikh_dibebaskan", "cara_bebas",
+    "tarikh_masuk", "dokumen", "catatan",
 ]
+
+# Location of the bundled real dataset (imported automatically on first run).
+DATASET_PATH = os.environ.get(
+    "IKAWAL_DATASET", os.path.join(BASE_DIR, "data", "iringkawal_bpk2026.xlsx")
+)
 
 
 # ============================================================================
@@ -143,6 +151,7 @@ def init_db() -> None:
             jenis_kesalahan TEXT, nombor_reman TEXT, nombor_fail TEXT, depot TEXT,
             pegawai TEXT, tarikh_tamat_reman TEXT, tindakan TEXT, surat_rayuan TEXT,
             tarikh_dibebaskan TEXT, cara_bebas TEXT,
+            tarikh_masuk TEXT, dokumen TEXT, catatan TEXT,
             created_at TEXT, updated_at TEXT
         )
         """
@@ -155,17 +164,52 @@ def init_db() -> None:
         )
         """
     )
+    # lightweight migration for databases created before these columns existed
+    existing = {row[1] for row in db.execute("PRAGMA table_info(records)")}
+    for col in ("tarikh_masuk", "dokumen", "catatan"):
+        if col not in existing:
+            db.execute(f"ALTER TABLE records ADD COLUMN {col} TEXT")
     db.commit()
     count = db.execute("SELECT COUNT(*) FROM records").fetchone()[0]
     if count == 0:
-        for rec in sample_records():
-            _insert_record(db, rec)
+        loaded = load_dataset_into(db)
+        if not loaded:
+            for rec in sample_records():
+                _insert_record(db, rec)
+            action, detail = "Seed", "Data contoh dimuatkan"
+        else:
+            action, detail = "Seed", f"Set data diimport ({loaded} rekod)"
         db.execute(
             "INSERT INTO audit (ts, user, role, action, detail) VALUES (?,?,?,?,?)",
-            (now_ts(), "system", "Sistem", "Seed", "Data contoh dimuatkan"),
+            (now_ts(), "system", "Sistem", action, detail),
         )
         db.commit()
     db.close()
+
+
+def load_dataset_into(db: sqlite3.Connection) -> int:
+    """Import the bundled Excel/CSV dataset if available. Returns row count."""
+    path = DATASET_PATH
+    if not path or not os.path.exists(path):
+        return 0
+    try:
+        if path.lower().endswith(".csv"):
+            with open(path, "rb") as fh:
+                rows = parse_csv_bytes(fh.read())
+        else:
+            if not HAS_OPENPYXL:
+                return 0
+            wb = openpyxl.load_workbook(path, data_only=True, read_only=True)
+            ws = wb[wb.sheetnames[0]]
+            rows = [list(r) for r in ws.iter_rows(values_only=True)]
+    except Exception:  # noqa: BLE001
+        return 0
+    records, _report = clean_rows(rows)
+    for rec in records:
+        rec["id"] = "r" + uuid.uuid4().hex[:10]
+        _insert_record(db, rec)
+    db.commit()
+    return len(records)
 
 
 def now_ts() -> str:
@@ -222,6 +266,8 @@ def login_required(view):
     @wraps(view)
     def wrapped(*args, **kwargs):
         if not session.get("role"):
+            if request.path.startswith("/api/"):
+                return jsonify({"error": "unauthenticated"}), 401
             return redirect(url_for("login"))
         return view(*args, **kwargs)
 
@@ -270,10 +316,16 @@ def detect_field(h):
 
     if has_any(["pegawai", "officer", "handle", "penyelia"]):
         return "pegawai"
+    if "dokumen" in n or "document" in n:
+        return "dokumen"
+    if has_any(["catatan", "nota", "remark", "note"]):
+        return "catatan"
     if "dibebas" in n:
         return "tarikh_dibebaskan"
     if "bebas" in n and "cara" in n:
         return "cara_bebas"
+    if "masuk" in n and "tarikh" in n:
+        return "tarikh_masuk"
     if "tarikh" in n and "reman" in n:
         return "tarikh_tamat_reman"
     if "tamat" in n:
@@ -389,15 +441,17 @@ def split_ga(raw, rep) -> dict:
 
 def norm_depot(v) -> str:
     s = str("" if v is None else v).lower()
-    if "papar" in s:
+    if "papar" in s or s.strip() == "dip":
         return "Papar"
-    if "kinabalu" in s or "kk" in s:
+    if "kinabalu" in s or "kk" in s or s.strip() == "dikk":
         return "Kota Kinabalu"
     return title_case(v)
 
 
 def norm_tindakan(v) -> str:
     s = str("" if v is None else v).lower()
+    if "usir" in s or s.strip() in ("usi", "usr"):
+        return "Usir"
     if "sambung" in s:
         return "Sambung Reman"
     if "bebas" in s or "lepas" in s:
@@ -446,10 +500,10 @@ def to_iso_date(v) -> str:
         except Exception:
             return ""
     s = str(v).strip()
-    m = re.match(r"^(\d{4})[-/](\d{1,2})[-/](\d{1,2})", s)
+    m = re.match(r"^(\d{4})[./-](\d{1,2})[./-](\d{1,2})", s)
     if m:
         return f"{m.group(1)}-{int(m.group(2)):02d}-{int(m.group(3)):02d}"
-    m = re.match(r"^(\d{1,2})[-/](\d{1,2})[-/](\d{2,4})", s)
+    m = re.match(r"^(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})", s)
     if m:
         y = m.group(3)
         y = ("20" + y) if len(y) == 2 else y
@@ -528,6 +582,8 @@ def clean_rows(rows: list[list]) -> tuple[list[dict], dict]:
                 rec["surat_rayuan"] = norm_rayuan(raw)
             elif f == "tarikh_tamat_reman":
                 rec["tarikh_tamat_reman"] = to_iso_date(raw)
+            elif f == "tarikh_masuk":
+                rec["tarikh_masuk"] = to_iso_date(raw)
             elif f == "tarikh_dibebaskan":
                 rec["tarikh_dibebaskan"] = to_iso_date(raw)
             elif f == "cara_bebas":
@@ -557,12 +613,12 @@ def clean_rows(rows: list[list]) -> tuple[list[dict], dict]:
     rep["total"] = len(records)
     counts: dict[str, int] = {}
     for r in records:
-        key = (r.get("nombor_fail") or "").strip().upper()
+        key = dup_key(r)
         if key:
             counts[key] = counts.get(key, 0) + 1
     for key, n in counts.items():
         if n > 1:
-            rep["dup"].append({"fail": key, "count": n})
+            rep["dup"].append({"ref": key, "count": n})
     for r in records:
         if not r["tarikh_tamat_reman"]:
             rep["date_empty"].append(r["nama"] or "(tiada nama)")
@@ -604,6 +660,17 @@ def is_urgent(rec: dict) -> bool:
 
 def has_rayuan(rec: dict) -> bool:
     return rec.get("surat_rayuan") in ("Diterima", "Dalam Semakan")
+
+
+def dup_key(rec: dict) -> str:
+    """Reference used for duplicate detection: the reman number, falling back
+    to name + file number when the reman number is missing."""
+    reman = (rec.get("nombor_reman") or "").strip().upper()
+    if reman:
+        return reman
+    nama = (rec.get("nama") or "").strip().upper()
+    fail = (rec.get("nombor_fail") or "").strip().upper()
+    return f"{nama}|{fail}" if (nama or fail) else ""
 
 
 def filtered_records(records, f_filter, f_search, f_officer, f_sort):
@@ -667,7 +734,7 @@ def count_by(records, key):
 def dup_set(records):
     counts: dict[str, int] = {}
     for r in records:
-        k = (r.get("nombor_fail") or "").strip().upper()
+        k = dup_key(r)
         if k:
             counts[k] = counts.get(k, 0) + 1
     return {k for k, n in counts.items() if n > 1}
@@ -802,6 +869,18 @@ def index():
     return render_template("index.html", user=current_user())
 
 
+@app.route("/app")
+@login_required
+def app_shell():
+    """Serve the single-file app.html, wired to this JSON API."""
+    return send_from_directory(BASE_DIR, "app.html")
+
+
+@app.route("/app.html")
+def app_html_alias():
+    return redirect(url_for("app_shell") if session.get("role") else url_for("login"))
+
+
 # ============================================================================
 # Routes: API
 # ============================================================================
@@ -869,8 +948,8 @@ def api_create_record():
     rec = normalize_payload(data)
     if not rec["nama"]:
         return jsonify({"error": "Sila isi Nama."}), 400
-    if not rec["nombor_fail"]:
-        return jsonify({"error": "Sila isi Nombor Fail."}), 400
+    if not (rec["nombor_fail"] or rec["nombor_reman"]):
+        return jsonify({"error": "Sila isi Nombor Reman atau Nombor Fail."}), 400
     if rec["tindakan"] == "Bebas" and not rec["tarikh_dibebaskan"]:
         return jsonify({"error": "Sila isi Tarikh Dibebaskan untuk tindakan Bebas."}), 400
     rec["id"] = "r" + uuid.uuid4().hex[:10]
@@ -889,8 +968,8 @@ def api_update_record(rid):
     rec = normalize_payload(data)
     if not rec["nama"]:
         return jsonify({"error": "Sila isi Nama."}), 400
-    if not rec["nombor_fail"]:
-        return jsonify({"error": "Sila isi Nombor Fail."}), 400
+    if not (rec["nombor_fail"] or rec["nombor_reman"]):
+        return jsonify({"error": "Sila isi Nombor Reman atau Nombor Fail."}), 400
     if rec["tindakan"] == "Bebas" and not rec["tarikh_dibebaskan"]:
         return jsonify({"error": "Sila isi Tarikh Dibebaskan untuk tindakan Bebas."}), 400
     db = get_db()
@@ -972,10 +1051,13 @@ def normalize_payload(data: dict) -> dict:
         "depot": s("depot") or "Papar",
         "pegawai": s("pegawai"),
         "tarikh_tamat_reman": to_iso_date(s("tarikh_tamat_reman")),
-        "tindakan": s("tindakan") or "Sambung Reman",
+        "tindakan": norm_tindakan(s("tindakan")) or "Sambung Reman",
         "surat_rayuan": s("surat_rayuan") or "Tiada",
         "tarikh_dibebaskan": "",
         "cara_bebas": "",
+        "tarikh_masuk": to_iso_date(s("tarikh_masuk")),
+        "dokumen": s("dokumen"),
+        "catatan": s("catatan"),
     }
     if rec["tindakan"] == "Bebas":
         rec["tarikh_dibebaskan"] = to_iso_date(s("tarikh_dibebaskan"))
@@ -1048,8 +1130,8 @@ def api_export_xlsx():
     headers = [
         "Nama", "Jantina", "Umur", "Bangsa", "Warganegara", "Jenis Kesalahan",
         "Nombor Reman", "Nombor Fail", "Depot", "Pegawai Handle",
-        "Tarikh Tamat Reman", "Tindakan Selepas Reman", "Status Semasa",
-        "Tarikh Dibebaskan", "Cara Bebas", "Surat Rayuan",
+        "Tarikh Masuk", "Tarikh Tamat Reman", "Tindakan Selepas Reman", "Status Semasa",
+        "Tarikh Dibebaskan", "Cara Bebas", "Surat Rayuan", "Dokumen", "Catatan",
     ]
     wb = openpyxl.Workbook()
     ws = wb.active
@@ -1064,10 +1146,11 @@ def api_export_xlsx():
         ws.append([
             r["nama"], r["jantina"], r["umur"], r["bangsa"], r["warganegara"],
             r["jenis_kesalahan"], r["nombor_reman"], r["nombor_fail"], r["depot"],
-            r["pegawai"], r["tarikh_tamat_reman"], r["tindakan"], status_semasa(r),
-            r["tarikh_dibebaskan"], r["cara_bebas"], r["surat_rayuan"],
+            r["pegawai"], r["tarikh_masuk"], r["tarikh_tamat_reman"], r["tindakan"],
+            status_semasa(r), r["tarikh_dibebaskan"], r["cara_bebas"], r["surat_rayuan"],
+            r["dokumen"], r["catatan"],
         ])
-    widths = [26, 10, 6, 12, 13, 20, 16, 20, 16, 16, 18, 22, 16, 18, 24, 16]
+    widths = [26, 10, 6, 12, 13, 20, 16, 20, 16, 16, 12, 18, 22, 16, 18, 24, 16, 16, 30]
     for i, w in enumerate(widths, start=1):
         ws.column_dimensions[openpyxl.utils.get_column_letter(i)].width = w
 
@@ -1303,17 +1386,53 @@ def api_audit_clear():
     return jsonify({"ok": True})
 
 
+@app.route("/api/audit", methods=["POST"])
+@login_required
+def api_audit_add():
+    data = request.get_json(silent=True) or {}
+    audit(str(data.get("action") or ""), str(data.get("detail") or ""))
+    return jsonify({"ok": True})
+
+
 # ----------------------------------------------------------------------------
 # CLI entry point
 # ----------------------------------------------------------------------------
+def reset_and_import() -> int:
+    """Wipe records and re-import the bundled dataset (or sample fallback)."""
+    init_db()
+    db = sqlite3.connect(DB_PATH)
+    db.execute("DELETE FROM records")
+    db.commit()
+    n = load_dataset_into(db)
+    if not n:
+        for rec in sample_records():
+            _insert_record(db, rec)
+        n = len(sample_records())
+        note = "Data contoh"
+    else:
+        note = "Set data"
+    db.execute(
+        "INSERT INTO audit (ts, user, role, action, detail) VALUES (?,?,?,?,?)",
+        (now_ts(), "system", "Sistem", "Reimport", f"{note} ({n} rekod)"),
+    )
+    db.commit()
+    db.close()
+    return n
+
+
 if __name__ == "__main__":
+    if len(sys.argv) > 1 and sys.argv[1] in ("import", "reimport", "load"):
+        count = reset_and_import()
+        print(f"Selesai: {count} rekod diimport ke {DB_PATH}")
+        sys.exit(0)
     init_db()
     host = os.environ.get("IKAWAL_HOST", "127.0.0.1")
     port = int(os.environ.get("IKAWAL_PORT", "5000"))
     debug = os.environ.get("IKAWAL_DEBUG", "1") == "1"
     print("=" * 68)
     print("  Iringkawal Analyzer + Supervisor Dashboard - BPK 2026")
-    print(f"  Buka: http://{host}:{port}")
+    print(f"  Dashboard : http://{host}:{port}/")
+    print(f"  app.html  : http://{host}:{port}/app   (wired to this backend)")
     print("  Demo: staff2026 / penyelia2026 / boss2026")
     print("=" * 68)
     app.run(host=host, port=port, debug=debug)

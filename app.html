@@ -590,7 +590,7 @@
       <table>
         <thead>
           <tr>
-            <th>Nama</th><th>Jantina</th><th>Umur</th><th>Bangsa</th><th>Warganegara</th>
+            <th>Nama</th><th>Tarikh Masuk</th><th>Jantina</th><th>Umur</th><th>Bangsa</th><th>Warganegara</th>
             <th>Jenis Kesalahan</th><th>Nombor Reman</th><th>Nombor Fail</th><th>Depot</th>
             <th>Pegawai Handle</th><th>Tarikh Tamat Reman</th><th>Tindakan Selepas Reman</th>
             <th>Status Semasa</th><th>Surat Rayuan</th><th class="col-aksi">Aksi</th>
@@ -640,6 +640,10 @@
           <div class="field full">
             <label>Nama</label>
             <input type="text" id="f_nama" required placeholder="cth. Ahmad bin Abdullah" />
+          </div>
+          <div class="field">
+            <label>Tarikh Masuk</label>
+            <input type="date" id="f_tarikhMasuk" />
           </div>
           <div class="field">
             <label>Jantina</label>
@@ -700,7 +704,7 @@
           <div class="field">
             <label>Tindakan Selepas Reman</label>
             <select id="f_tindakan">
-              <option>Sambung Reman</option><option>Bebas</option>
+              <option>Usir</option><option>Sambung Reman</option><option>Bebas</option>
               <option>Tuduh di Mahkamah</option><option>Hantar Agensi Lain</option>
             </select>
           </div>
@@ -725,6 +729,14 @@
             <select id="f_suratRayuan">
               <option>Diterima</option><option>Tiada</option><option>Dalam Semakan</option>
             </select>
+          </div>
+          <div class="field">
+            <label>Dokumen</label>
+            <input type="text" id="f_dokumen" placeholder="cth. TIADA DOKUMEN" />
+          </div>
+          <div class="field">
+            <label>Catatan</label>
+            <input type="text" id="f_catatan" placeholder="cth. catatan tambahan" />
           </div>
         </div>
       </div>
@@ -789,6 +801,63 @@
   var cleanReport = null;
   var editingId = null;
   var charts = {};
+  var SERVER = false;        // true when served by the Flask backend
+  var serverMeta = null;
+
+  /* ---------- API bridge (server mode) ---------- */
+  function apiFetch(url, opts){
+    return fetch(url, opts).then(function(res){
+      if(res.status === 401){ location.href = "/login"; throw new Error("unauthenticated"); }
+      var isJson = (res.headers.get("content-type")||"").indexOf("application/json") !== -1;
+      return (isJson ? res.json() : res.text()).then(function(body){
+        if(!res.ok){ throw new Error((body && body.error) || ("Ralat " + res.status)); }
+        return body;
+      });
+    });
+  }
+  function fromApi(r){
+    return {
+      id:r.id, nama:r.nama, jantina:r.jantina,
+      umur:(r.umur===""||r.umur===null||r.umur===undefined)?"":r.umur,
+      bangsa:r.bangsa, warganegara:r.warganegara, jenisKesalahan:r.jenis_kesalahan,
+      nomborReman:r.nombor_reman, nomborFail:r.nombor_fail, depot:r.depot, pegawai:r.pegawai,
+      tarikhMasuk:r.tarikh_masuk, tarikhTamatReman:r.tarikh_tamat_reman, tindakan:r.tindakan,
+      suratRayuan:r.surat_rayuan, tarikhDibebaskan:r.tarikh_dibebaskan, caraBebas:r.cara_bebas,
+      dokumen:r.dokumen, catatan:r.catatan
+    };
+  }
+  function toApi(r){
+    return {
+      nama:r.nama, jantina:r.jantina, umur:r.umur, bangsa:r.bangsa, warganegara:r.warganegara,
+      jenis_kesalahan:r.jenisKesalahan, nombor_reman:r.nomborReman, nombor_fail:r.nomborFail,
+      depot:r.depot, pegawai:r.pegawai, tarikh_masuk:r.tarikhMasuk,
+      tarikh_tamat_reman:r.tarikhTamatReman, tindakan:r.tindakan, surat_rayuan:r.suratRayuan,
+      tarikh_dibebaskan:r.tarikhDibebaskan, cara_bebas:r.caraBebas,
+      dokumen:r.dokumen, catatan:r.catatan
+    };
+  }
+  function mapReport(rep, count){
+    if(!rep) return null;
+    return {
+      total: count, thnRemoved: rep.thn_removed||0, gaSplit: rep.ga_split||0,
+      bwSplit: rep.bw_split||0, dup: rep.dup||[], dateEmpty: rep.date_empty||[]
+    };
+  }
+  function dupKey(r){
+    var reman = String(r.nomborReman||"").trim().toUpperCase();
+    if(reman) return reman;
+    var nama = String(r.nama||"").trim().toUpperCase();
+    var fail = String(r.nomborFail||"").trim().toUpperCase();
+    return (nama||fail) ? (nama+"|"+fail) : "";
+  }
+  function reloadData(){
+    if(!SERVER){ renderAll(); return Promise.resolve(); }
+    return apiFetch("/api/data?filter=semua").then(function(res){
+      serverMeta = res;
+      state.records = (res.records||[]).map(fromApi);
+      renderAll();
+    });
+  }
 
   var SESSION_KEY = "iringkawal_session_v1";
   var BLN = ["Januari","Februari","Mac","April","Mei","Jun","Julai","Ogos","September","Oktober","November","Disember"];
@@ -822,7 +891,10 @@
   }
 
   /* ---------- auth / roles ---------- */
-  function can(act){ return !!(session && ROLES[session.role] && ROLES[session.role].can[act]); }
+  function can(act){
+    if(SERVER) return !!(session && session.can && session.can[act]);
+    return !!(session && ROLES[session.role] && ROLES[session.role].can[act]);
+  }
   function toggleHidden(id, hide){ var e = $(id); if(e) e.classList.toggle("hidden", !!hide); }
   function saveSession(){ try{ if(session) localStorage.setItem(SESSION_KEY, JSON.stringify(session)); else localStorage.removeItem(SESSION_KEY); }catch(e){} }
   function loadSession(){ try{ var s = localStorage.getItem(SESSION_KEY); if(s){ var o = JSON.parse(s); if(o && ROLES[o.role]) return o; } }catch(e){} return null; }
@@ -840,14 +912,14 @@
     $("userRole").textContent = r.label;
     var ini = String(session.name || r.label).replace(/[^A-Za-z ]/g,"").trim();
     $("userAv").textContent = (ini.charAt(0).toUpperCase() || r.icon);
-    toggleHidden("btnUpload", !r.can.upload);
-    toggleHidden("btnSample", !r.can.upload);
-    toggleHidden("btnAdd", !r.can.add);
-    toggleHidden("btnXlsx", !r.can.export);
-    toggleHidden("btnPrint", !r.can.export);
-    toggleHidden("btnCetak", !r.can.export);
-    toggleHidden("btnClear", !r.can.del);
-    toggleHidden("auditClear", !r.can.del);
+    toggleHidden("btnUpload", !can("upload"));
+    toggleHidden("btnSample", !can("upload"));
+    toggleHidden("btnAdd", !can("add"));
+    toggleHidden("btnXlsx", !can("export"));
+    toggleHidden("btnPrint", !can("export"));
+    toggleHidden("btnCetak", !can("export"));
+    toggleHidden("btnClear", !can("del"));
+    toggleHidden("auditClear", !can("del"));
     renderTable();
   }
   function showLogin(){ $("login").classList.add("on"); }
@@ -904,6 +976,11 @@
     return [];
   }
   function audit(action, detail){
+    if(SERVER){
+      apiFetch("/api/audit", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ action:action, detail:detail||"" }) })
+        .then(renderAudit).catch(function(){});
+      return;
+    }
     try{
       var log = loadAudit();
       log.unshift({
@@ -923,6 +1000,22 @@
     return d.getDate()+" "+BLN[d.getMonth()].slice(0,3)+" "+d.getFullYear()+" "+pad(d.getHours())+":"+pad(d.getMinutes());
   }
   function renderAudit(){
+    if(SERVER){
+      var c0 = $("auditCount"), b0 = $("auditBody");
+      apiFetch("/api/audit").then(function(log){
+        if(c0) c0.textContent = log.length;
+        if(!b0) return;
+        if(!log.length){ b0.innerHTML = '<div class="empty-state"><div class="e">🕓</div><p>Tiada aktiviti direkodkan lagi.</p></div>'; return; }
+        b0.innerHTML = '<div class="table-scroll" style="max-height:340px"><table style="min-width:780px">'+
+          '<thead><tr><th>Masa</th><th>Pengguna</th><th>Peranan</th><th>Tindakan</th><th>Butiran</th></tr></thead><tbody>'+
+          log.map(function(e){
+            return '<tr><td>'+esc(e.ts)+'</td><td class="nm">'+esc(e.user)+'</td><td>'+esc(e.role)+
+                   '</td><td>'+esc(e.action)+'</td><td>'+esc(e.detail)+'</td></tr>';
+          }).join("")+
+          '</tbody></table></div>';
+      }).catch(function(){});
+      return;
+    }
     var cnt = $("auditCount"); if(cnt) cnt.textContent = loadAudit().length;
     var body = $("auditBody"); if(!body) return;
     var log = loadAudit();
@@ -938,6 +1031,7 @@
 
   /* ---------- storage ---------- */
   function save(){
+    if(SERVER) return;
     try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(state.records)); }
     catch(e){ console.warn("Gagal simpan:",e); }
   }
@@ -1111,9 +1205,9 @@
       if(!isNaN(d)) return fmtISO(new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
     }
     var s = String(v).trim();
-    var m = s.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/);
+    var m = s.match(/^(\d{4})[.\-\/](\d{1,2})[.\-\/](\d{1,2})/);
     if(m) return m[1]+"-"+pad(m[2])+"-"+pad(m[3]);
-    m = s.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{2,4})/);
+    m = s.match(/^(\d{1,2})[.\-\/](\d{1,2})[.\-\/](\d{2,4})/);
     if(m){ var y = m[3].length===2 ? "20"+m[3] : m[3]; return y+"-"+pad(m[2])+"-"+pad(m[1]); }
     var dd = new Date(s);
     if(!isNaN(dd)) return fmtISO(dd);
@@ -1210,7 +1304,7 @@
   function dupSet(){
     var counts = {}, dup = {};
     state.records.forEach(function(r){
-      var k = (r.nomborFail||"").trim().toUpperCase();
+      var k = dupKey(r);
       if(!k) return; counts[k] = (counts[k]||0)+1;
     });
     Object.keys(counts).forEach(function(k){ if(counts[k]>1) dup[k]=true; });
@@ -1471,17 +1565,18 @@
     } else { bi.classList.remove("on"); bi.innerHTML = ""; }
 
     if(!list.length){
-      tb.innerHTML = '<tr><td colspan="15"><div class="empty-state"><div class="e">📭</div>'+
+      tb.innerHTML = '<tr><td colspan="16"><div class="empty-state"><div class="e">📭</div>'+
         '<p>Tiada rekod untuk dipaparkan.</p></div></td></tr>';
       return;
     }
 
     tb.innerHTML = list.map(function(r){
       var urgent = isUrgent(r);
-      var isDup = dup[(r.nomborFail||"").trim().toUpperCase()];
+      var isDup = dup[dupKey(r)];
       var rowCls = ((urgent ? "urgent " : "") + (isBebas(r) ? "bebas" : "")).trim();
       return '<tr class="'+rowCls+'" data-id="'+r.id+'">'+
         '<td class="nm">'+esc(r.nama)+'<span class="sub">'+esc(r.nomborFail||"-")+'</span></td>'+
+        '<td>'+esc(r.tarikhMasuk||"-")+'</td>'+
         '<td>'+esc(r.jantina||"-")+'</td>'+
         '<td>'+esc(r.umur===""?"-":r.umur)+'</td>'+
         '<td>'+esc(r.bangsa||"-")+'</td>'+
@@ -1611,6 +1706,9 @@
     setVal("f_suratRayuan", r?r.suratRayuan:"Tiada");
     setVal("f_tarikhDibebaskan", r?r.tarikhDibebaskan:"");
     setVal("f_caraBebas", r?r.caraBebas:"Bebas Tanpa Syarat");
+    setVal("f_tarikhMasuk", r?r.tarikhMasuk:"");
+    setVal("f_dokumen", r?r.dokumen:"");
+    setVal("f_catatan", r?r.catatan:"");
     toggleBebasFields();
     $("modal").classList.add("on");
     setTimeout(function(){ $("f_nama").focus(); },60);
@@ -1638,14 +1736,29 @@
       nomborFail: $("f_nomborFail").value.trim(),
       depot: $("f_depot").value,
       pegawai: $("f_pegawai").value.trim(),
+      tarikhMasuk: $("f_tarikhMasuk").value,
       tarikhTamatReman: $("f_tarikhTamatReman").value,
       tindakan: tindakanVal,
       suratRayuan: $("f_suratRayuan").value,
       tarikhDibebaskan: (tindakanVal === "Bebas" ? tarikhBebas : ""),
-      caraBebas: (tindakanVal === "Bebas" ? $("f_caraBebas").value : "")
+      caraBebas: (tindakanVal === "Bebas" ? $("f_caraBebas").value : ""),
+      dokumen: $("f_dokumen").value.trim(),
+      catatan: $("f_catatan").value.trim()
     };
     if(!rec.nama){ toast("Sila isi Nama.","err"); return; }
-    if(!rec.nomborFail){ toast("Sila isi Nombor Fail.","err"); return; }
+    if(!rec.nomborFail && !rec.nomborReman){ toast("Sila isi Nombor Reman atau Nombor Fail.","err"); return; }
+    if(SERVER){
+      var method = editingId ? "PUT" : "POST";
+      var url = editingId ? ("/api/records/" + editingId) : "/api/records";
+      apiFetch(url, { method:method, headers:{"Content-Type":"application/json"}, body: JSON.stringify(toApi(rec)) })
+        .then(function(){
+          toast(editingId ? "Rekod dikemas kini." : "Rekod baharu ditambah.","ok");
+          closeModal();
+          return reloadData().then(renderAudit);
+        })
+        .catch(function(e){ toast(e.message,"err"); });
+      return;
+    }
     if(editingId){
       state.records = state.records.map(function(x){ return x.id===editingId ? rec : x; });
       audit("Edit rekod", rec.nama);
@@ -1662,6 +1775,12 @@
     var r = state.records.filter(function(x){return x.id===id;})[0];
     if(!r) return;
     if(!confirm("Padam rekod "+r.nama+" ?")) return;
+    if(SERVER){
+      apiFetch("/api/records/"+id, { method:"DELETE" })
+        .then(function(){ toast("Rekod dipadam.","ok"); return reloadData().then(renderAudit); })
+        .catch(function(e){ toast(e.message,"err"); });
+      return;
+    }
     state.records = state.records.filter(function(x){ return x.id!==id; });
     save(); renderAll(); audit("Padam rekod", r.nama); toast("Rekod dipadam.","ok");
   }
@@ -1690,6 +1809,22 @@
   }
 
   function handleFile(file){
+    if(SERVER){
+      var fd = new FormData(); fd.append("file", file);
+      fetch("/api/import", { method:"POST", body: fd })
+        .then(function(res){ return res.json().then(function(b){ if(!res.ok) throw new Error(b.error || "Gagal import"); return b; }); })
+        .then(function(b){
+          cleanReport = mapReport(b.report, b.count);
+          state.officer = null; state.filter = "semua"; state.search = ""; $("searchInput").value="";
+          return reloadData().then(function(){
+            renderAudit();
+            $("cleanPanel").scrollIntoView({behavior:"smooth",block:"center"});
+            toast(b.count+" rekod diimport & dibersihkan.","ok");
+          });
+        })
+        .catch(function(e){ toast(e.message,"err"); });
+      return;
+    }
     var name = (file && file.name ? file.name : "").toLowerCase();
     var isCsv = /\.csv$/.test(name);
     if(!isCsv && typeof XLSX === "undefined"){ toast("Pustaka Excel tidak dimuatkan. Semak sambungan internet.","err"); return; }
@@ -1725,6 +1860,7 @@
 
   /* ---------- export ---------- */
   function exportXlsx(){
+    if(SERVER){ audit("Eksport Excel", state.records.length+" rekod"); window.location = "/api/export/xlsx"; return; }
     if(typeof XLSX === "undefined"){ toast("Pustaka Excel tidak dimuatkan. Semak sambungan internet.","err"); return; }
     if(!state.records.length){ toast("Tiada data untuk dieksport.","err"); return; }
     var data = state.records.map(function(r){
@@ -1732,14 +1868,15 @@
         "Nama": r.nama, "Jantina": r.jantina, "Umur": r.umur, "Bangsa": r.bangsa,
         "Warganegara": r.warganegara, "Jenis Kesalahan": r.jenisKesalahan,
         "Nombor Reman": r.nomborReman, "Nombor Fail": r.nomborFail, "Depot": r.depot,
-        "Pegawai Handle": r.pegawai, "Tarikh Tamat Reman": r.tarikhTamatReman,
+        "Pegawai Handle": r.pegawai, "Tarikh Masuk": r.tarikhMasuk || "",
+        "Tarikh Tamat Reman": r.tarikhTamatReman,
         "Tindakan Selepas Reman": r.tindakan, "Status Semasa": statusSemasa(r),
         "Tarikh Dibebaskan": r.tarikhDibebaskan || "", "Cara Bebas": r.caraBebas || "",
-        "Surat Rayuan": r.suratRayuan
+        "Surat Rayuan": r.suratRayuan, "Dokumen": r.dokumen || "", "Catatan": r.catatan || ""
       };
     });
     var ws = XLSX.utils.json_to_sheet(data);
-    ws["!cols"] = [ {wch:26},{wch:10},{wch:6},{wch:12},{wch:13},{wch:20},{wch:16},{wch:20},{wch:16},{wch:16},{wch:18},{wch:22},{wch:16},{wch:18},{wch:24},{wch:16} ];
+    ws["!cols"] = [ {wch:26},{wch:10},{wch:6},{wch:12},{wch:13},{wch:20},{wch:16},{wch:20},{wch:16},{wch:16},{wch:12},{wch:18},{wch:22},{wch:16},{wch:18},{wch:24},{wch:16},{wch:16},{wch:30} ];
     var wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Tahanan Bersih");
     XLSX.writeFile(wb, "Iringkawal_Bersih_"+stamp()+".xlsx");
@@ -1749,6 +1886,7 @@
 
   function exportPdf(period){
     period = period || "semua";
+    if(SERVER){ audit("Jana Laporan PDF", periodLabel(period)); window.location = "/api/export/pdf?period=" + encodeURIComponent(period); return; }
     var jsPDFctor = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
     if(typeof jsPDFctor !== "function"){ toast("Pustaka PDF tidak dimuatkan — membuka cetakan sebagai ganti.","err"); doPrint(); return; }
     if(!state.records.length){ toast("Tiada data untuk dieksport.","err"); return; }
@@ -1938,6 +2076,14 @@
   $("btnSample").onclick = function(){
     if(!can("upload")){ toast("Peranan anda tiada akses muat naik.","err"); return; }
     if(state.records.length && !confirm("Gantikan data semasa dengan 12 data contoh?")) return;
+    if(SERVER){
+      apiFetch("/api/sample", { method:"POST" })
+        .then(function(){ cleanReport=null; state.officer=null; state.filter="semua"; state.search=""; $("searchInput").value="";
+          return reloadData().then(renderAudit); })
+        .then(function(){ toast("12 data contoh dimuatkan.","ok"); })
+        .catch(function(e){ toast(e.message,"err"); });
+      return;
+    }
     state.records = dummyData();
     cleanReport = null;
     state.officer=null; state.filter="semua"; state.search=""; $("searchInput").value="";
@@ -1951,6 +2097,13 @@
     if(!can("del")){ toast("Peranan anda tiada akses padam.","err"); return; }
     if(!state.records.length){ toast("Data sudah kosong.","err"); return; }
     if(!confirm("Padam SEMUA data? Tindakan ini tidak boleh diundur.")) return;
+    if(SERVER){
+      apiFetch("/api/records", { method:"DELETE" })
+        .then(function(){ cleanReport=null; state.officer=null; return reloadData().then(renderAudit); })
+        .then(function(){ toast("Semua data dipadam.","ok"); })
+        .catch(function(e){ toast(e.message,"err"); });
+      return;
+    }
     state.records = []; cleanReport=null; state.officer=null;
     save(); renderAll(); audit("Padam semua data",""); toast("Semua data dipadam.","ok");
   };
@@ -1992,6 +2145,12 @@
   $("auditClear").onclick = function(){
     if(!can("del")){ toast("Peranan anda tiada akses kosongkan log.","err"); return; }
     if(!confirm("Kosongkan semua log audit?")) return;
+    if(SERVER){
+      apiFetch("/api/audit", { method:"DELETE" })
+        .then(function(){ renderAudit(); toast("Log audit dikosongkan.","ok"); })
+        .catch(function(e){ toast(e.message,"err"); });
+      return;
+    }
     try{ localStorage.removeItem(AUDIT_KEY); }catch(e){}
     renderAudit(); toast("Log audit dikosongkan.","ok");
   };
@@ -2008,7 +2167,7 @@
   $("ofClear").onclick = function(){ state.officer=null; renderOfficers(); renderTable(); };
 
   /* ---------- init ---------- */
-  function init(){
+  function bootStandalone(){
     var stored = load();
     if(stored && stored.length){
       state.records = stored.map(function(r){ if(!r.id) r.id = uid(); return migrateRec(r); });
@@ -2024,16 +2183,33 @@
     applyRole();
     renderAudit();
     if(!session) showLogin();
-
-    // segarkan kiraan reman apabila tarikh bertukar (setiap minit)
+  }
+  function startClock(){
     setInterval(function(){
       var now = new Date();
       if(now.getDate() !== lastDay){
         lastDay = now.getDate();
-        updateDateNow(); renderAll();
+        updateDateNow();
+        if(SERVER){ reloadData(); } else { renderAll(); }
         toast("Tarikh baharu — kiraan reman disegarkan.","ok");
       }
     }, 60000);
+  }
+  function init(){
+    // Try the Flask backend first; fall back to standalone (localStorage) mode.
+    apiFetch("/api/me").then(function(me){
+      SERVER = true;
+      session = { role: me.role, name: me.name, label: me.label, icon: me.icon, can: me.can };
+      hideLogin();
+      applyRole();
+      $("sortSel").value = state.sort;
+      updateDateNow();
+      return reloadData().then(renderAudit);
+    }).catch(function(e){
+      if(e && e.message === "unauthenticated") return;   // redirecting to /login
+      SERVER = false;
+      bootStandalone();
+    }).then(startClock);
   }
 
   if(document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);

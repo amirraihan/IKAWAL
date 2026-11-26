@@ -328,7 +328,7 @@
       <table>
         <thead>
           <tr>
-            <th>Nama</th><th>Jantina</th><th>Umur</th><th>Bangsa</th><th>Warganegara</th>
+            <th>Nama</th><th>Tarikh Masuk</th><th>Jantina</th><th>Umur</th><th>Bangsa</th><th>Warganegara</th>
             <th>Jenis Kesalahan</th><th>Nombor Reman</th><th>Nombor Fail</th><th>Depot</th>
             <th>Pegawai Handle</th><th>Tarikh Tamat Reman</th><th>Tindakan Selepas Reman</th>
             <th>Status Semasa</th><th>Surat Rayuan</th><th class="col-aksi">Aksi</th>
@@ -378,6 +378,10 @@
             <input type="text" id="f_nama" required placeholder="cth. Ahmad bin Abdullah" />
           </div>
           <div class="field">
+            <label>Tarikh Masuk</label>
+            <input type="date" id="f_tarikh_masuk" />
+          </div>
+          <div class="field">
             <label>Jantina</label>
             <select id="f_jantina"><option>Lelaki</option><option>Perempuan</option></select>
           </div>
@@ -420,7 +424,7 @@
           <div class="field">
             <label>Tindakan Selepas Reman</label>
             <select id="f_tindakan">
-              <option>Sambung Reman</option><option>Bebas</option>
+              <option>Usir</option><option>Sambung Reman</option><option>Bebas</option>
               <option>Tuduh di Mahkamah</option><option>Hantar Agensi Lain</option>
             </select>
           </div>
@@ -445,6 +449,14 @@
             <select id="f_surat_rayuan">
               <option>Diterima</option><option>Tiada</option><option>Dalam Semakan</option>
             </select>
+          </div>
+          <div class="field">
+            <label>Dokumen</label>
+            <input type="text" id="f_dokumen" placeholder="cth. TIADA DOKUMEN" />
+          </div>
+          <div class="field">
+            <label>Catatan</label>
+            <input type="text" id="f_catatan" placeholder="cth. catatan tambahan" />
           </div>
         </div>
       </div>
@@ -624,6 +636,7 @@ function tindakanBadge(v){
   if(v === "Sambung Reman") cls = "b-blue";
   else if(v === "Tuduh di Mahkamah") cls = "b-amber";
   else if(v === "Hantar Agensi Lain") cls = "b-teal";
+  else if(v === "Usir") cls = "b-red";
   return '<span class="badge '+cls+'">'+esc(v||"-")+'</span>';
 }
 function rayuanBadge(v){
@@ -658,13 +671,14 @@ function renderTable(){
   const bi = $("bebasInfo");
   if(state.filter === "bebas"){ bi.classList.add("on"); bi.innerHTML = '🔓 <span class="big">Senarai Tahanan Yang Sudah Bebas: '+list.length+' orang</span>'; }
   else { bi.classList.remove("on"); bi.innerHTML = ""; }
-  if(!list.length){ tb.innerHTML = '<tr><td colspan="15"><div class="empty-state"><div class="e">📭</div><p>Tiada rekod untuk dipaparkan.</p></div></td></tr>'; return; }
+  if(!list.length){ tb.innerHTML = '<tr><td colspan="16"><div class="empty-state"><div class="e">📭</div><p>Tiada rekod untuk dipaparkan.</p></div></td></tr>'; return; }
   tb.innerHTML = list.map(r => {
     const urgent = isUrgent(r);
     const isDup = dup[(r.nombor_fail||"").trim().toUpperCase()];
     const rowCls = ((urgent ? "urgent " : "") + (isBebas(r) ? "bebas" : "")).trim();
     return '<tr class="'+rowCls+'">'+
       '<td class="nm">'+esc(r.nama)+'<span class="sub">'+esc(r.nombor_fail||"-")+'</span></td>'+
+      '<td>'+esc(r.tarikh_masuk||"-")+'</td>'+
       '<td>'+esc(r.jantina||"-")+'</td>'+
       '<td>'+esc(r.umur===""?"-":r.umur)+'</td>'+
       '<td>'+esc(r.bangsa||"-")+'</td>'+
@@ -724,7 +738,7 @@ function renderClean(report, count){
   const panel = $("cleanPanel");
   if(!report){ panel.style.display = "none"; panel.innerHTML = ""; return; }
   panel.style.display = "block";
-  const dupList = report.dup.length ? report.dup.map(d => '<div class="tagline">⚠ <b>'+esc(d.fail)+'</b> — '+d.count+' rekod bertindih</div>').join("") : '<div class="cr-empty">Tiada duplikat nombor fail. ✔</div>';
+  const dupList = report.dup.length ? report.dup.map(d => '<div class="tagline">⚠ <b>'+esc(d.ref)+'</b> — '+d.count+' rekod bertindih</div>').join("") : '<div class="cr-empty">Tiada duplikat nombor rujukan. ✔</div>';
   const dateList = report.date_empty.length ? report.date_empty.map(n => '<div class="tagline">📅 '+esc(n)+'</div>').join("") : '<div class="cr-empty">Semua rekod mempunyai tarikh tamat reman. ✔</div>';
   panel.innerHTML =
     '<div class="panel-head"><h2><span>🧹</span> Laporan Auto-Clean</h2><span class="sub">Hasil pembersihan fail terkini</span>'+
@@ -734,10 +748,10 @@ function renderClean(report, count){
       '<div class="cr-stat '+(report.thn_removed>0?"warn":"")+'"><div class="n">'+report.thn_removed+'</div><div class="l">"THN" Dibuang</div></div>'+
       '<div class="cr-stat '+(report.ga_split>0?"warn":"")+'"><div class="n">'+report.ga_split+'</div><div class="l">Gender/Umur Diasingkan</div></div>'+
       '<div class="cr-stat '+(report.bw_split>0?"warn":"")+'"><div class="n">'+report.bw_split+'</div><div class="l">Bangsa/Warganegara Diasingkan</div></div>'+
-      '<div class="cr-stat '+(report.dup.length>0?"bad":"")+'"><div class="n">'+report.dup.length+'</div><div class="l">Duplikat No. Fail</div></div>'+
+      '<div class="cr-stat '+(report.dup.length>0?"bad":"")+'"><div class="n">'+report.dup.length+'</div><div class="l">Duplikat No. Rujukan</div></div>'+
       '<div class="cr-stat '+(report.date_empty.length>0?"bad":"")+'"><div class="n">'+report.date_empty.length+'</div><div class="l">Tarikh Reman Kosong</div></div>'+
     '</div>'+
-    '<div class="cr-list"><div class="cr-box"><h4>Duplikat Nombor Fail</h4>'+dupList+'</div>'+
+    '<div class="cr-list"><div class="cr-box"><h4>Duplikat Nombor Rujukan (Reman)</h4>'+dupList+'</div>'+
     '<div class="cr-box"><h4>Tarikh Tamat Reman Kosong</h4>'+dateList+'</div></div>';
   $("crClose").onclick = () => renderClean(null, 0);
 }
@@ -765,11 +779,13 @@ async function openModal(id){
   let r = null;
   if(id){ r = (await api("/api/data?filter=semua&q="+encodeURIComponent(""))).records.find(x => x.id === id); }
   setVal("f_nama", r?r.nama:""); setVal("f_jantina", r?r.jantina:"Lelaki"); setVal("f_umur", r?r.umur:"");
+  setVal("f_tarikh_masuk", r?r.tarikh_masuk:"");
   setVal("f_bangsa", r?r.bangsa:""); setVal("f_warganegara", r?r.warganegara:""); setVal("f_jenis_kesalahan", r?r.jenis_kesalahan:"");
   setVal("f_nombor_reman", r?r.nombor_reman:""); setVal("f_nombor_fail", r?r.nombor_fail:""); setVal("f_depot", r?r.depot:"Papar");
   setVal("f_pegawai", r?r.pegawai:""); setVal("f_tarikh_tamat_reman", r?r.tarikh_tamat_reman:"");
   setVal("f_tindakan", r?r.tindakan:"Sambung Reman"); setVal("f_surat_rayuan", r?r.surat_rayuan:"Tiada");
   setVal("f_tarikh_dibebaskan", r?r.tarikh_dibebaskan:""); setVal("f_cara_bebas", r?r.cara_bebas:"Bebas Tanpa Syarat");
+  setVal("f_dokumen", r?r.dokumen:""); setVal("f_catatan", r?r.catatan:"");
   toggleBebasFields();
   $("modal").classList.add("on");
   setTimeout(() => $("f_nama").focus(), 60);
@@ -895,11 +911,13 @@ $("recForm").addEventListener("submit", async (ev) => {
     umur: $("f_umur").value, bangsa: $("f_bangsa").value.trim(), warganegara: $("f_warganegara").value.trim(),
     jenis_kesalahan: $("f_jenis_kesalahan").value.trim(), nombor_reman: $("f_nombor_reman").value.trim(),
     nombor_fail: $("f_nombor_fail").value.trim(), depot: $("f_depot").value, pegawai: $("f_pegawai").value.trim(),
+    tarikh_masuk: $("f_tarikh_masuk").value,
     tarikh_tamat_reman: $("f_tarikh_tamat_reman").value, tindakan: tindakanVal, surat_rayuan: $("f_surat_rayuan").value,
-    tarikh_dibebaskan: tindakanVal === "Bebas" ? tarikhBebas : "", cara_bebas: tindakanVal === "Bebas" ? $("f_cara_bebas").value : ""
+    tarikh_dibebaskan: tindakanVal === "Bebas" ? tarikhBebas : "", cara_bebas: tindakanVal === "Bebas" ? $("f_cara_bebas").value : "",
+    dokumen: $("f_dokumen").value.trim(), catatan: $("f_catatan").value.trim()
   };
   if(!rec.nama){ toast("Sila isi Nama.","err"); return; }
-  if(!rec.nombor_fail){ toast("Sila isi Nombor Fail.","err"); return; }
+  if(!rec.nombor_fail && !rec.nombor_reman){ toast("Sila isi Nombor Reman atau Nombor Fail.","err"); return; }
   try{
     if(editingId){ await api("/api/records/"+editingId, { method:"PUT", body: JSON.stringify(rec) }); toast("Rekod dikemas kini.","ok"); }
     else { await api("/api/records", { method:"POST", body: JSON.stringify(rec) }); toast("Rekod baharu ditambah.","ok"); }
