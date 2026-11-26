@@ -78,6 +78,9 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("IKAWAL_SECRET", "iringkawal-bpk-2026-dev-secret")
 app.permanent_session_lifetime = dt.timedelta(minutes=30)
 
+from uc4.phase3_reports.blueprint import uc4_bp
+app.register_blueprint(uc4_bp)
+
 # ----------------------------------------------------------------------------
 # Roles & credentials
 # ----------------------------------------------------------------------------

@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>UC-4 · AI Insight &amp; Laporan Bulanan — IKAWAL BPK 2026</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  :root{
+    --navy:#0A1E3F; --navy2:#12305F; --teal:#0E7C7B; --teal2:#14B8A6;
+    --blue:#2563EB; --bg:#F1F5FA; --card:#FFFFFF; --line:#DCE6F2;
+    --ink:#14233C; --muted:#5B6E8A; --red:#C03335; --amber:#B7791F; --green:#0D7A5F;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font:14px/1.55 "Segoe UI",system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--ink);padding-bottom:48px;}
+  .topbar{position:sticky;top:0;z-index:50;background:linear-gradient(110deg,#081A38 0%,var(--navy2) 55%,#0E5E63 100%);
+    color:#fff;padding:13px 22px;box-shadow:0 8px 24px -10px rgba(8,26,56,.45);}
+  .topbar::after{content:"";position:absolute;left:0;right:0;bottom:0;height:3px;background:linear-gradient(90deg,#3B82F6,var(--teal2));}
+  .tb-inner{max-width:1380px;margin:0 auto;display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+  .crest{width:38px;height:38px;border-radius:11px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.25);
+    display:grid;place-items:center;font-weight:800;letter-spacing:.5px;}
+  .brand-t{font-weight:800;font-size:1.03rem;}
+  .brand-s{font-size:.7rem;letter-spacing:.9px;opacity:.85;text-transform:uppercase;}
+  .tb-right{margin-left:auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .btn{border:none;border-radius:10px;padding:9px 14px;font:600 .82rem inherit;cursor:pointer;text-decoration:none;
+    display:inline-flex;align-items:center;gap:6px;transition:transform .08s,opacity .15s;}
+  .btn:hover{opacity:.92;} .btn:active{transform:translateY(1px);}
+  .btn:disabled{opacity:.5;cursor:not-allowed;}
+  .btn-ghost{background:rgba(255,255,255,.13);color:#fff;border:1px solid rgba(255,255,255,.22);}
+  .btn-primary{background:var(--blue);color:#fff;}
+  .btn-teal{background:var(--teal);color:#fff;}
+  .btn-green{background:var(--green);color:#fff;}
+  .btn-soft{background:#EBF2FC;color:var(--navy2);border:1px solid #C9DAEE;}
+  .wrap{max-width:1380px;margin:20px auto 0;padding:0 20px;}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin-bottom:18px;
+    box-shadow:0 4px 16px -10px rgba(10,30,63,.16);}
+  .panel-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;}
+  .panel-head h2{font-size:1.02rem;font-weight:800;color:var(--navy);}
+  .sub{font-size:.8rem;color:var(--muted);}
+  .spacer{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+  select.sel{border:1px solid var(--line);border-radius:10px;padding:8px 12px;font:600 .83rem inherit;color:var(--navy2);background:#FAFBFD;}
+  .badge{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:3px 10px;font-size:.73rem;font-weight:700;}
+  .b-draft{background:#FEF3C7;color:#92400E;}
+  .b-rel{background:#D1FAE5;color:#065F46;}
+  .b-ok{background:#E0F2FE;color:#075985;}
+  .b-warn{background:#FEE2E2;color:#991B1B;}
+  .kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:18px;}
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;box-shadow:0 3px 12px -8px rgba(10,30,63,.15);}
+  .kpi .lbl{font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);}
+  .kpi .val{font-size:1.8rem;font-weight:800;color:var(--navy);margin:4px 0 2px;line-height:1.1;}
+  .kpi .meta{font-size:.76rem;font-weight:600;color:var(--teal);}
+  .grid2{display:grid;grid-template-columns:1.35fr 1fr;gap:18px;}
+  .grid-info{display:grid;grid-template-columns:1fr 1.4fr;gap:18px;}
+  textarea.narr{width:100%;min-height:215px;border:1px solid var(--line);border-radius:12px;padding:13px 14px;
+    font:13.5px/1.6 inherit;color:var(--ink);background:#FAFBFD;resize:vertical;}
+  textarea.narr:focus{outline:2px solid #93C5FD;background:#fff;}
+  .insight-list{display:flex;flex-direction:column;gap:9px;}
+  .ins{border:1px solid var(--line);border-left:4px solid var(--blue);border-radius:10px;padding:10px 12px;background:#FAFBFD;}
+  .ins.kritikal{border-left-color:var(--red);background:#FEF2F2;}
+  .ins.tinggi{border-left-color:var(--amber);background:#FFFBEB;}
+  .ins.sederhana{border-left-color:var(--blue);background:#EFF6FF;}
+  .ins.info{border-left-color:var(--teal);background:#F0FDFA;}
+  .ins-t{font-weight:800;font-size:.84rem;color:var(--navy);display:flex;align-items:center;justify-content:space-between;gap:8px;}
+  .ins-d{font-size:.8rem;color:#334155;margin-top:3px;}
+  .cwrap{position:relative;height:270px;}
+  table.mx{width:100%;border-collapse:collapse;font-size:.79rem;margin-top:10px;}
+  table.mx th,table.mx td{border:1px solid var(--line);padding:7px 9px;text-align:left;}
+  table.mx th{background:#EFF4FB;color:var(--navy2);font-weight:700;}
+  table.mx td.num,table.mx th.num{text-align:center;}
+  table.mx td.hot{background:#FEE2E2;color:#991B1B;font-weight:800;}
+  .wave4-box{margin-top:14px;border:1px dashed #94A3B8;border-radius:11px;padding:12px 14px;background:#F8FAFC;font-size:.82rem;}
+  .toast{position:fixed;right:22px;bottom:22px;background:var(--navy);color:#fff;padding:12px 16px;border-radius:11px;
+    font-weight:600;font-size:.83rem;box-shadow:0 12px 26px rgba(0,0,0,.25);display:none;z-index:100;}
+  .toast.show{display:block;}
+  @media (max-width:980px){.kpis{grid-template-columns:repeat(2,1fr);}.grid2,.grid-info{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="tb-inner">
+    <div class="crest">UC4</div>
+    <div>
+      <div class="brand-t">AI Insight &amp; Automated Report Generator</div>
+      <div class="brand-s">IKAWAL SmartDepot · Laporan Bulanan &amp; Infografik · BPK 2026</div>
+    </div>
+    <div class="tb-right">
+      <span class="badge b-ok" id="userBadge">{{ user.name }} ({{ user.role }})</span>
+      <a class="btn btn-ghost" href="/">← Dashboard Utama</a>
+      <a class="btn btn-ghost" href="/app">app.html</a>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+  <!-- Controls -->
+  <section class="panel">
+    <div class="panel-head" style="margin-bottom:0">
+      <div>
+        <h2>🗓️ Kawalan Laporan Bulanan (UC-4)</h2>
+        <div class="sub">Menggabungkan snapshot reman (UC-1), status kes (UC-2), dan anggaran kemasukan (UC-3)</div>
+      </div>
+      <div class="spacer">
+        <select class="sel" id="monthSel"></select>
+        <select class="sel" id="modeSel" title="Mod penjanaan naratif">
+          <option value="auto">Mod: Auto (LLM / Fallback)</option>
+          <option value="fallback">Mod: Templat Deterministik</option>
+        </select>
+        <button class="btn btn-primary" id="btnGen">🔄 Jana Semula AI Insight</button>
+        <button class="btn btn-soft" id="btnPdf">📄 Muat Turun PDF</button>
+        <button class="btn btn-soft" id="btnXlsx">📊 Muat Turun XLSX</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- KPI Strip -->
+  <section class="kpis" id="kpiStrip"></section>
+
+  <!-- Narrative + Insights -->
+  <div class="grid2">
+    <section class="panel">
+      <div class="panel-head">
+        <h2>📝 Naratif Eksekutif &amp; Semakan Penganalisis</h2>
+        <div class="spacer">
+          <span class="badge b-draft" id="statusBadge">DRAF</span>
+          <span class="badge b-ok" id="guardBadge">Guard: -</span>
+        </div>
+      </div>
+      <div class="sub" id="metaLine" style="margin-bottom:10px">Memuatkan data...</div>
+      <textarea class="narr" id="narrText" placeholder="Naratif laporan akan dipaparkan di sini..."></textarea>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;align-items:center;">
+        <button class="btn btn-soft" id="btnSaveNarr">💾 Simpan Suntingan Naratif</button>
+        <button class="btn btn-green" id="btnRelease">✅ Sahkan &amp; Release Laporan</button>
+        <span class="sub" id="reviewInfo" style="margin-left:auto"></span>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>⚡ Insight Automatik (Enjin E9)</h2>
+        <span class="sub" id="insCount"></span>
+      </div>
+      <div class="insight-list" id="insightList"></div>
+    </section>
+  </div>
+
+  <!-- Infographics -->
+  <section class="panel">
+    <div class="panel-head">
+      <h2>🎨 Infografik UC-4 — Profil Warganegara &amp; Kesalahan</h2>
+      <span class="sub">Pecahan warganegara dan kesalahan setiap warganegara (data semasa), serta kesediaan medan tempoh &gt; 14 hari</span>
+    </div>
+    <div class="grid-info">
+      <div>
+        <h3 style="font-size:.88rem;color:var(--navy2);margin-bottom:8px;">Pecahan Warganegara</h3>
+        <div class="cwrap"><canvas id="cInfoWarga"></canvas></div>
+      </div>
+      <div>
+        <h3 style="font-size:.88rem;color:var(--navy2);margin-bottom:8px;">Kesalahan Setiap Warganegara (Kategori Akta)</h3>
+        <div class="cwrap"><canvas id="cInfoCross"></canvas></div>
+      </div>
+    </div>
+    <div id="crossTableWrap" style="overflow-x:auto;margin-top:10px;"></div>
+    <div class="wave4-box" id="wave4Box"></div>
+  </section>
+
+  <!-- UC-2 / UC-3 & Data Quality -->
+  <section class="panel">
+    <div class="panel-head">
+      <h2>🔗 Status Integrasi UC-2 / UC-3 &amp; Kualiti Data</h2>
+      <span class="sub">Sedia disambung ke modul rakan kumpulan apabila branch UC-2 dan UC-3 digabungkan ke main</span>
+    </div>
+    <div id="adapterGrid" style="overflow-x:auto;"></div>
+  </section>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const CAN_EDIT = {{ 'true' if user.can.edit else 'false' }};
+let CURRENT_REPORT = null;
+let chartWarga = null;
+let chartCross = null;
+
+function $(id){ return document.getElementById(id); }
+function esc(s){ return String(s ?? "").replace(/[&<>"']/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m])); }
+function toast(msg){
+  const el = $("toast"); el.textContent = msg; el.classList.add("show");
+  clearTimeout(toast._t); toast._t = setTimeout(() => el.classList.remove("show"), 3200);
+}
+
+async function api(url, opts = {}){
+  const res = await fetch(url, opts);
+  const data = await res.json();
+  if(!res.ok) throw new Error(data.error || "Ralat pelayan");
+  return data;
+}
+
+function renderReport(rep){
+  CURRENT_REPORT = rep;
+  const k = rep.kpi_payload.kpis;
+  const mom = rep.kpi_payload.mom;
+  const pct = mom.total_pct_change;
+  const momTxt = pct === null ? "Tiada data bulan lalu" : ((mom.total_delta >= 0 ? "+" : "") + mom.total_delta + " (" + pct + "% vs " + mom.prev_month_label + ")");
+
+  $("kpiStrip").innerHTML = [
+    {lbl:"Jumlah Reman ("+rep.month_label+")", val:k.total_reman, meta:momTxt},
+    {lbl:"Masih Aktif / Bebas", val:k.aktif + " / " + k.bebas, meta:"Kohort bulan dipilih"},
+    {lbl:"Mendesak <=3h / Tertunggak", val:k.urgent_atau_tertunggak, meta:"Kes aktif perlu tindakan"},
+    {lbl:"Tempoh > 14 Hari", val:k.tempoh_lebih_14_hari, meta:"Lanjutan reman"},
+    {lbl:"Pegawai Aktif", val:k.pegawai.jumlah_pegawai_aktif, meta:"Purata " + k.pegawai.purata_kes_per_pegawai + " kes/pegawai"},
+  ].map(c => `<div class="kpi"><div class="lbl">${esc(c.lbl)}</div><div class="val">${esc(c.val)}</div><div class="meta">${esc(c.meta)}</div></div>`).join("");
+
+  // Narrative & status
+  $("narrText").value = rep.narrative_text || "";
+  $("narrText").readOnly = !CAN_EDIT;
+  $("btnGen").disabled = !CAN_EDIT;
+  $("btnSaveNarr").disabled = !CAN_EDIT;
+  $("btnRelease").disabled = !CAN_EDIT;
+
+  const isRel = rep.status === "released";
+  $("statusBadge").className = "badge " + (isRel ? "b-rel" : "b-draft");
+  $("statusBadge").textContent = isRel ? "DISAHKAN (RELEASED)" : "DRAF";
+  $("reviewInfo").textContent = isRel ? ("Disahkan oleh " + rep.reviewed_by + " pada " + rep.reviewed_at) : "Belum disahkan oleh penganalisis";
+
+  const g = rep.numeric_guard || {};
+  $("guardBadge").className = "badge " + (g.passed ? "b-ok" : "b-warn");
+  $("guardBadge").textContent = g.passed
+    ? `Guard Angka: LULUS (${g.checked_count || 0} angka disemak)`
+    : `Guard Angka: ${(g.untraced_numbers || []).length} tidak berpadanan`;
+
+  $("metaLine").textContent = `Mod: ${rep.narrative_mode || "-"} · Pembekal: ${rep.provider || "-"} · Privasi: Data peribadi (NAMA & CATATAN) dikecualikan`;
+
+  // Insights
+  const insList = rep.kpi_payload.insights || [];
+  $("insCount").textContent = `${insList.length} insight dikesan`;
+  $("insightList").innerHTML = insList.map(i =>
+    `<div class="ins ${esc(i.severity)}"><div class="ins-t"><span>${esc(i.title)}</span><span class="badge b-ok">${esc(i.code)}</span></div><div class="ins-d">${esc(i.detail)}</div></div>`
+  ).join("");
+
+  renderInfographics(rep.kpi_payload);
+  renderAdapters(rep.kpi_payload);
+}
+
+function renderInfographics(payload){
+  const info = payload.infographics || {};
+  const natList = info.pecahan_warganegara || [];
+  if(chartWarga) chartWarga.destroy();
+  chartWarga = new Chart($("cInfoWarga"), {
+    type: "doughnut",
+    data: {
+      labels: natList.map(x => x.name),
+      datasets: [{ data: natList.map(x => x.count), backgroundColor: ["#0A1E3F","#14B8A6","#2563EB","#F59E0B","#EF4444","#8B5CF6","#64748B"] }]
+    },
+    options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:"right" } } }
+  });
+
+  const cross = info.kesalahan_setiap_warganegara || {akta_groups:[], rows:[]};
+  const acts = cross.akta_groups || [];
+  const rows = cross.rows || [];
+  const palette = ["#12305F","#0E7C7B","#2563EB","#D97706","#64748B"];
+
+  if(chartCross) chartCross.destroy();
+  chartCross = new Chart($("cInfoCross"), {
+    type: "bar",
+    data: {
+      labels: rows.map(r => r.warganegara),
+      datasets: acts.map((act, idx) => ({
+        label: act,
+        data: rows.map(r => (r.mengikut_akta || {})[act] || 0),
+        backgroundColor: palette[idx % palette.length],
+      }))
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      scales:{ x:{ stacked:true }, y:{ stacked:true, beginAtZero:true } },
+      plugins:{ legend:{ position:"bottom", labels:{ boxWidth:12 } } }
+    }
+  });
+
+  let maxCell = 0;
+  rows.forEach(r => acts.forEach(a => { const v = (r.mengikut_akta||{})[a]||0; if(v > maxCell) maxCell = v; }));
+  const ths = acts.map(a => `<th class="num">${esc(a)}</th>`).join("");
+  const trs = rows.map(r => {
+    const tds = acts.map(a => {
+      const v = (r.mengikut_akta||{})[a]||0;
+      return `<td class="num ${v > 0 && v === maxCell ? 'hot' : ''}">${v}</td>`;
+    }).join("");
+    return `<tr><td><b>${esc(r.warganegara)}</b></td><td class="num"><b>${r.jumlah}</b></td>${tds}</tr>`;
+  }).join("");
+  $("crossTableWrap").innerHTML = `<table class="mx"><thead><tr><th>Warganegara</th><th class="num">Jumlah</th>${ths}</tr></thead><tbody>${trs}</tbody></table>`;
+
+  const s14 = info.sebab_lebih_14_hari || {};
+  $("wave4Box").innerHTML = `<b>📌 Sebab Reman Melebihi 14 Hari (Wave 4 Slot):</b> ${esc(s14.nota || "-")} (Kes &gt; 14 hari dikesan daripada tarikh masuk/tamat semasa: <b>${payload.kpis.tempoh_lebih_14_hari}</b> kes).`;
+}
+
+function renderAdapters(payload){
+  const uc2 = payload.uc2_summary || {};
+  const uc3 = payload.uc3_forecast || {};
+  const dq = payload.kpis.kualiti_data || {};
+  const fc = Object.entries(uc3.anggaran_kemasukan_bulanan_depot || {}).map(([k,v]) => `${k}: ${v}/bln`).join(" · ") || "-";
+  $("adapterGrid").innerHTML = `
+    <table class="mx">
+      <thead><tr><th>Komponen</th><th>Mod Integrasi</th><th>Sumber</th><th>Ringkasan Semasa</th></tr></thead>
+      <tbody>
+        <tr><td><b>UC-2 Case Decision Support</b></td><td>${uc2.integrated ? "Terintegrasi" : "Fallback UC-1"}</td><td>${esc(uc2.source)}</td><td>Mendesak/Tertunggak: <b>${uc2.kes_mendesak_atau_tertunggak}</b> · &gt;14 hari: <b>${uc2.kes_reman_lebih_14_hari}</b> · Rayuan: <b>${uc2.kes_rayuan_aktif}</b></td></tr>
+        <tr><td><b>UC-3 Depot Forecasting</b></td><td>${uc3.integrated ? "Terintegrasi" : "Fallback 3-Bulan"}</td><td>${esc(uc3.source)}</td><td>Anggaran kemasukan: <b>${esc(fc)}</b></td></tr>
+        <tr><td><b>Kualiti Data Kohort</b></td><td>Automatik</td><td>Phase 1 Guard</td><td>No. Reman kosong: <b>${dq.nombor_reman_kosong}</b> · Tamat &lt; Masuk: <b>${dq.tarikh_tamat_sebelum_masuk}</b> · Tahun tamat janggal: <b>${dq.tahun_tamat_janggal}</b></td></tr>
+      </tbody>
+    </table>`;
+}
+
+async function loadMonthsAndInit(){
+  const info = await api("/api/uc4/months");
+  const sel = $("monthSel");
+  sel.innerHTML = (info.months || []).slice().reverse().map(m => {
+    const st = (info.saved || {})[m];
+    const tag = st ? (st.status === "released" ? " [DISAHKAN]" : " [DRAF]") : "";
+    return `<option value="${esc(m)}">${esc(m + tag)}</option>`;
+  }).join("");
+  if(info.default_month) sel.value = info.default_month;
+  await loadMonthReport();
+}
+
+async function loadMonthReport(){
+  const m = $("monthSel").value;
+  const data = await api("/api/uc4/report?month=" + encodeURIComponent(m));
+  renderReport(data.report);
+}
+
+$("monthSel").onchange = loadMonthReport;
+
+$("btnGen").onclick = async () => {
+  try{
+    const data = await api("/api/uc4/generate", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({ month: $("monthSel").value, mode: $("modeSel").value }),
+    });
+    renderReport(data.report);
+    toast("KPI & AI Insight dijana semula untuk " + data.report.month_label);
+  }catch(e){ toast(e.message); }
+};
+
+$("btnSaveNarr").onclick = async () => {
+  try{
+    const data = await api("/api/uc4/narrative", {
+      method:"PUT", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({ month: $("monthSel").value, narrative_text: $("narrText").value }),
+    });
+    renderReport(data.report);
+    toast("Suntingan naratif disimpan sebagai draf.");
+  }catch(e){ toast(e.message); }
+};
+
+$("btnRelease").onclick = async () => {
+  try{
+    const data = await api("/api/uc4/release", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({ month: $("monthSel").value }),
+    });
+    renderReport(data.report);
+    toast("Laporan berjaya disahkan (Released)!");
+  }catch(e){ toast(e.message); }
+};
+
+$("btnPdf").onclick = () => {
+  window.location = "/api/uc4/export/pdf?month=" + encodeURIComponent($("monthSel").value);
+};
+$("btnXlsx").onclick = () => {
+  window.location = "/api/uc4/export/xlsx?month=" + encodeURIComponent($("monthSel").value);
+};
+
+loadMonthsAndInit().catch(e => toast(e.message));
+</script>
+</body>
+</html>
