@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Use Cases &amp; Pipeline — SmartDepot (v3)</title>
+<style>
+  :root{
+    --ink:#12203a; --muted:#5a6b86; --line:#d9e0ec; --bg:#f4f7fc; --card:#fff;
+    --brand:#1b4d8f; --brand2:#2f7dc4; --done:#0d7a5f; --part:#b7791f; --defer:#b5322f;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:15px/1.6 "Segoe UI",system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;}
+  .wrap{max-width:1100px;margin:0 auto;padding:32px 20px 72px;}
+  header.hero{background:linear-gradient(135deg,#17335c 0%,#1b4d8f 55%,#2f7dc4 100%);
+    color:#fff;border-radius:16px;padding:32px 34px;box-shadow:0 12px 30px rgba(18,32,58,.18);}
+  header.hero .eyebrow{text-transform:uppercase;letter-spacing:.16em;font-size:12px;font-weight:700;opacity:.85;margin:0 0 8px;}
+  header.hero h1{margin:0 0 10px;font-size:29px;line-height:1.2;}
+  header.hero p{margin:0;max-width:82ch;opacity:.95;}
+  header.hero .chip{display:inline-block;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);
+    border-radius:999px;padding:4px 12px;font-size:12.5px;font-weight:600;margin:16px 8px 0 0;}
+  section.card{background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:26px 26px 22px;margin-top:22px;box-shadow:0 2px 10px rgba(18,32,58,.04);}
+  h2{font-size:21px;margin:0 0 6px;} h2 .num{color:var(--brand2);}
+  .sub{color:var(--muted);margin:0 0 18px;font-size:14px;}
+  h3{font-size:16px;margin:24px 0 10px;}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;margin:6px 0 4px;}
+  caption{caption-side:top;text-align:left;color:var(--muted);font-size:13px;padding:0 0 8px;}
+  th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top;}
+  th{background:#eef3fa;font-weight:700;color:#243a5e;}
+  td.ctr,th.ctr{text-align:center;}
+  tbody tr:nth-child(even){background:#fafcff;}
+  td.id{font-weight:700;white-space:nowrap;}
+  code{background:#eef3fa;color:#1b4d8f;border-radius:5px;padding:1px 5px;font-size:12.5px;}
+  .tag{display:inline-block;border-radius:999px;padding:2px 10px;font-size:12px;font-weight:700;color:#fff;white-space:nowrap;}
+  .v-done{background:var(--done);} .v-part{background:var(--part);} .v-defer{background:var(--defer);} .p2{background:#2f7dc4;}
+  .r-crit{background:#b5322f;} .r-high{background:#d9822b;} .r-med{background:#2f7dc4;} .r-low{background:#7f8ca3;}
+  .e{display:inline-block;background:#e8f0fb;color:#1b4d8f;border-radius:6px;padding:1px 7px;font-size:12px;font-weight:700;margin:0 2px 2px 0;}
+  .note{background:#f7f9fd;border-left:4px solid var(--brand2);border-radius:0 8px 8px 0;padding:12px 16px;margin:16px 0;font-size:13.5px;color:#2c3e5e;}
+  .warn{background:#fdf6ec;border-left:4px solid var(--part);border-radius:0 8px 8px 0;padding:12px 16px;margin:16px 0;font-size:13.5px;color:#6b4e14;}
+  .legend{display:flex;flex-wrap:wrap;gap:16px;margin:8px 0 0;font-size:13px;color:var(--muted);}
+  .legend span{display:inline-flex;align-items:center;gap:6px;}
+  .swatch{width:14px;height:14px;border-radius:4px;display:inline-block;border:1px solid rgba(0,0,0,.12);}
+  ol.steps{margin:8px 0 0;padding-left:22px;} ol.steps li{margin:6px 0;}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;}
+  .kpi{background:#f7f9fd;border:1px solid var(--line);border-radius:10px;padding:12px 14px;}
+  .kpi b{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:4px;}
+  .kpi span{font-size:13.5px;color:#2c3e5e;}
+  footer{color:var(--muted);font-size:12.5px;margin-top:26px;text-align:center;}
+  svg{max-width:100%;height:auto;}
+  @media (max-width:760px){ .grid3{grid-template-columns:1fr;} }
+  @media print{body{background:#fff;} section.card{box-shadow:none;break-inside:avoid;}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <p class="eyebrow">Solution Pack &middot; v3 (aligned to the BPK / Iringkawal reman dataset)</p>
+  <h1>Use Cases &amp; Pipeline &mdash; SmartDepot<br/>Banduan Dagang Monitoring &amp; Decision Support</h1>
+  <p>One monitoring system for foreign detainees (<em>banduan dagang</em>) under remand, built on the existing
+     BPK / Iringkawal reman register. Four use cases: a live <strong>interactive dashboard</strong>, <strong>case decision
+     support</strong> (automated reman + risk priority), <strong>depot population forecasting</strong>, and an <strong>AI insight
+     &amp; automated report generator</strong>. Every time a reman record is keyed in or updated, the reman countdown,
+     risk label, recommendation and dashboard refresh automatically.</p>
+  <div>
+    <span class="chip">Use cases: UC-1 &hellip; UC-4</span>
+    <span class="chip">Dataset: 14 columns &middot; 2,115 rows (dummy) &middot; Jan&ndash;Dec 2026 &middot; depots DIKK, DIP</span>
+    <span class="chip">Status: Draft v3</span>
+  </div>
+</header>
+
+<!-- ============================= 1 ============================= -->
+<section class="card">
+  <h2><span class="num">1.</span> Purpose &amp; Scope</h2>
+  <p class="sub">The problem, then how the requested functions map to four use cases.</p>
+
+  <p>The reman register is kept as one Excel sheet per period, updated by hand. Reman end dates are tracked by eye, there is
+     no consistent way to see which cases need action first, overcrowding is noticed only when a depot is full, and
+     briefings and the monthly report are rebuilt each cycle. <strong>SmartDepot</strong> replaces the sheet with a structured
+     entry form and a live dashboard over a small shared AI core.</p>
+
+  <h3>1.1 Requested functions &rarr; use cases</h3>
+  <table>
+    <caption>The dashboard is now a use case in its own right: it is the screen officers and management use every day.</caption>
+    <thead><tr><th>Requested function</th><th class="ctr">Use case</th><th>Why grouped this way</th></tr></thead>
+    <tbody>
+      <tr><td>Interactive dashboard that updates after every key-in / data update</td><td class="ctr"><strong>UC-1</strong><br/>Interactive Monitoring Dashboard</td><td>Includes data entry and Excel upload, because the "live" behaviour depends on how data comes in.</td></tr>
+      <tr><td>Automated reman for each banduan dagang</td><td class="ctr" rowspan="3"><strong>UC-2</strong><br/>Case Decision Support</td><td rowspan="3">All three run per case, on every update, from the same fields. The reman engine supplies the deadline, the risk score sets the priority, and decision support turns both into one recommended action.</td></tr>
+      <tr><td>Decision support system</td></tr>
+      <tr><td>Risk scoring to label priority cases</td></tr>
+      <tr><td>AI Depot Population Forecasting</td><td class="ctr"><strong>UC-3</strong></td><td>Depot-level, scheduled daily.</td></tr>
+      <tr><td>AI Insight &amp; Automated Report Generator</td><td class="ctr"><strong>UC-4</strong></td><td>Monthly report now; infographic later. Uses the outputs of UC-1 to UC-3.</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ============================= 2 ============================= -->
+<section class="card">
+  <h2><span class="num">2.</span> The Dataset</h2>
+  <p class="sub">The actual 14 columns of the reman register, what each is used for, and what is missing for the full design.</p>
+
+  <h3>2.1 Source columns</h3>
+  <table>
+    <caption>Sheet1 of <code>iringkawal_BPK_2026</code>. Example values show the format only.</caption>
+    <thead><tr><th>Column</th><th>Format / example</th><th>Meaning</th><th class="ctr">Used by</th><th>Issue found (dummy file)</th></tr></thead>
+    <tbody>
+      <tr><td><code>TARIKH TAMAT REMAN</code></td><td><code>DD.MM.YYYY-DD.MM.YYYY</code></td><td>Reman period: start&ndash;end in one cell</td><td class="ctr">UC-1&hellip;4</td><td>Two dates in one text cell; 41 rows end before they start (likely year typo); 1 blank</td></tr>
+      <tr><td><code>NAMA</code></td><td>text</td><td>Detainee name</td><td class="ctr">UC-1 (masked)</td><td>Personal data &mdash; mask in dashboard and exports</td></tr>
+      <tr><td><code>JANTINA</code></td><td>LELAKI / PEREMPUAN</td><td>Gender</td><td class="ctr">UC-1, 4</td><td>26 rows hold a number or symbol (age typed into the wrong column)</td></tr>
+      <tr><td><code>UMUR (THN)</code></td><td>integer</td><td>Age in years</td><td class="ctr">UC-1, 2, 4</td><td>Range 18&ndash;65, no blanks</td></tr>
+      <tr><td><code>BANGSA</code></td><td>BAJAU, SULUK, BUGIS&hellip;</td><td>Ethnicity</td><td class="ctr">UC-1, 4</td><td>32 values incl. spelling variants (VISAYA / BISAYA) and "-"</td></tr>
+      <tr><td><code>WARGANEGARA</code></td><td>FILIPINA, INDONESIA&hellip;</td><td>Nationality</td><td class="ctr">UC-1, 4</td><td>20 values incl. leading spaces, ethnic names (BAJAU, SULUK), codes (PHL), "." and combined values</td></tr>
+      <tr><td><code>NO.REMAN</code></td><td><code>26(nnnn)BD</code></td><td>Reman reference (key)</td><td class="ctr">All</td><td>256 blank; 2 duplicates</td></tr>
+      <tr><td><code>DOKUMEN</code></td><td>NIL</td><td>Travel / identity document</td><td class="ctr">UC-2</td><td>Always NIL &mdash; no information yet</td></tr>
+      <tr><td><code>NAMA PEGAWAI</code></td><td>rank + name</td><td>Investigating officer</td><td class="ctr">UC-1, 2</td><td>29 officers; 5 blank</td></tr>
+      <tr><td><code>FAIL</code></td><td><code>(nn)2026</code></td><td>Operation / file number (groups a batch)</td><td class="ctr">UC-1, 3</td><td>Column name has a leading space; 5 blank</td></tr>
+      <tr><td><code>DEPOT</code></td><td>DIKK / DIP</td><td>Depot</td><td class="ctr">All</td><td>1 "NIL", 5 blank</td></tr>
+      <tr><td><code>CATATAN</code></td><td>free text</td><td>Remarks</td><td class="ctr">UC-2</td><td>97% blank; contains useful flags (TANGKAP SEMULA, TAHAN SEMULA, rayuan) and, in at least one row, an identity-card number &mdash; must be masked</td></tr>
+      <tr><td><code>TINDAKAN</code></td><td>USIR, BEBAS DENGAN AMARAN&hellip;</td><td>Action / outcome</td><td class="ctr">UC-1, 2, 4</td><td>56 spellings of about 6 outcomes (USIR/RAI, USIR / RAI, USR&hellip;); some pending (UJIAN DNA, RAYUAN)</td></tr>
+      <tr><td><code>KESALAHAN</code></td><td>Akta + seksyen</td><td>Offence</td><td class="ctr">UC-1, 2, 4</td><td>88 spellings of the same sections (e.g. <code>6(1)( C ) Immg</code> vs <code>6(1)(C) IMMG</code>); some rows hold two offences</td></tr>
+    </tbody>
+  </table>
+
+  <h3>2.2 Derived fields (computed by the system)</h3>
+  <table>
+    <thead><tr><th>Derived field</th><th>How</th><th class="ctr">Used by</th></tr></thead>
+    <tbody>
+      <tr><td><code>tarikh_reman_mula</code>, <code>tarikh_reman_tamat</code></td><td>Split <code>TARIKH TAMAT REMAN</code> on "-" and parse DD.MM.YYYY; at entry, captured as two date pickers</td><td class="ctr">All</td></tr>
+      <tr><td><code>tempoh_reman</code>, <code>hari_berbaki</code></td><td>End &minus; start + 1 (14 days in 92% of rows; 15, 45 and 7 also appear); end &minus; today</td><td class="ctr">UC-1, 2</td></tr>
+      <tr><td><code>status_reman</code></td><td>Aktif / tamat &le; 3 hari / tamat hari ini / tertunggak / selesai</td><td class="ctr">UC-1, 2</td></tr>
+      <tr><td><code>akta</code>, <code>seksyen</code></td><td>Normalise <code>KESALAHAN</code> to Act group (Akta Imigresen 1959/63, Akta Dadah Berbahaya 1952, Kanun Keseksaan, Akta Kastam, lain-lain) + clean section code</td><td class="ctr">UC-1, 2, 4</td></tr>
+      <tr><td><code>tindakan_kod</code></td><td>Map <code>TINDAKAN</code> to USIR / USIR + BLI / USIR + RAI / BATAL PAS / BEBAS DENGAN AMARAN / BELUM MUKTAMAD</td><td class="ctr">UC-1, 2, 4</td></tr>
+      <tr><td><code>kumpulan_umur</code>, <code>flag_ulang</code></td><td>Age bands (18&ndash;29, 30&ndash;44, 45&ndash;59, 60+); repeat flag from CATATAN keywords</td><td class="ctr">UC-1, 2</td></tr>
+    </tbody>
+  </table>
+
+  <h3>2.3 What the dummy data shows (example of dashboard content)</h3>
+  <div class="grid3">
+    <div class="kpi"><b>Records</b><span>2,115 reman, Jan&ndash;Dec 2026; about 150&ndash;250 new reman per month</span></div>
+    <div class="kpi"><b>Depot</b><span>DIKK 1,144 &middot; DIP 965</span></div>
+    <div class="kpi"><b>Warganegara</b><span>Filipina 81.5% &middot; Indonesia 15.7% &middot; others &lt; 3%</span></div>
+    <div class="kpi"><b>Kesalahan (Act group)</b><span>Imigresen 971 &middot; Dadah ADB 1952 939 &middot; Kanun Keseksaan 127 &middot; unclear 74</span></div>
+    <div class="kpi"><b>Top section</b><span>6(1)(c) Akta Imigresen &mdash; 922 rows before spelling clean-up</span></div>
+    <div class="kpi"><b>Tindakan</b><span>USIR (any form) 2,050 &middot; BEBAS 55 &middot; pending / unclear 10</span></div>
+  </div>
+
+  <h3>2.4 Fields to add for the full design</h3>
+  <table>
+    <caption>Not in the current sheet. Without them, the marked functions run in a reduced form.</caption>
+    <thead><tr><th>New field</th><th>Why it is needed</th><th class="ctr">Affects</th></tr></thead>
+    <tbody>
+      <tr><td><code>TARIKH TANGKAP</code></td><td>Days detained before reman; true 14-day count</td><td class="ctr">UC-2</td></tr>
+      <tr><td><code>TARIKH USIR / KELUAR</code></td><td>Exit date &mdash; without it the current depot population and time-to-deport cannot be measured</td><td class="ctr">UC-1, 3</td></tr>
+      <tr><td><code>STATUS KES</code></td><td>Siasatan / reman / dituduh / dihukum / menunggu usir / diusir / dibebaskan</td><td class="ctr">UC-2, 4</td></tr>
+      <tr><td><code>BIL LANJUTAN REMAN</code></td><td>Extension count (today only visible as a longer reman period)</td><td class="ctr">UC-2</td></tr>
+      <tr><td><code>SEBAB LEBIH 14 HARI</code></td><td>Coded reason, for the infographic and for decision support</td><td class="ctr">UC-2, 4</td></tr>
+      <tr><td><code>DOKUMEN</code> (filled), <code>STATUS KEDUTAAN</code></td><td>Main blockers to deportation</td><td class="ctr">UC-2</td></tr>
+      <tr><td>Depot capacity (reference table)</td><td>Occupancy % and capacity warnings</td><td class="ctr">UC-1, 3</td></tr>
+    </tbody>
+  </table>
+
+  <div class="warn">
+    <strong>Data quality first:</strong> free-text entry is the main source of error (56 spellings of TINDAKAN, 88 of KESALAHAN,
+    two dates in one cell). The UC-1 entry form replaces these with dropdowns and date pickers, and the import step cleans
+    historical files with a mapping table. The CATATAN column can contain identity numbers and real names, so it is masked
+    in the dashboard and never sent to the LLM.
+  </div>
+</section>
+
+<!-- ============================= 3 ============================= -->
+<section class="card">
+  <h2><span class="num">3.</span> The System at a Glance</h2>
+  <p class="sub">One observable sentence, then the solution elements.</p>
+
+  <p>An officer keys in a new reman (or uploads the Excel); the system validates and cleans it, logs it as an event, recomputes
+     the case fields, and re-runs the <strong>reman engine</strong>, <strong>risk scoring</strong> and <strong>decision support</strong> for
+     that case &mdash; then refreshes the <strong>interactive dashboard</strong> and sends any alert. Each morning the
+     <strong>population forecaster</strong> updates; on the 1st of each month the <strong>report generator</strong> produces the monthly
+     report. All AI output is advisory; officers decide.</p>
+
+  <table>
+    <caption>Solution elements.</caption>
+    <thead><tr><th class="ctr">ID</th><th>Solution element</th><th>What it is</th></tr></thead>
+    <tbody>
+      <tr><td class="ctr"><span class="e">E1</span></td><td>Data entry &amp; ingestion</td><td>Entry form mirroring the 14 columns (dropdowns for WARGANEGARA, BANGSA, DEPOT, NAMA PEGAWAI, KESALAHAN, TINDAKAN; two date pickers for the reman period) plus Excel upload with a cleaning / mapping table.</td></tr>
+      <tr><td class="ctr"><span class="e">E2</span></td><td>Store &amp; event log</td><td>Clean reman table keyed on <code>NO.REMAN</code>, plus an append-only log of every change.</td></tr>
+      <tr><td class="ctr"><span class="e">E3</span></td><td>Feature layer</td><td>Derived fields in 2.2: days left, reman length, Act group, outcome code, age band, repeat flag, daily counts per depot.</td></tr>
+      <tr><td class="ctr"><span class="e">E4</span></td><td>Interactive dashboard</td><td>Pages, filters, cross-filtering and drill-down in UC-1; refreshes on every save.</td></tr>
+      <tr><td class="ctr"><span class="e">E5</span></td><td>Reman engine</td><td>Countdown to <code>tarikh_reman_tamat</code>, alert tiers, draft extension / outcome paperwork.</td></tr>
+      <tr><td class="ctr"><span class="e">E6</span></td><td>Risk scoring</td><td>Priority score 0&ndash;100 &rarr; Kritikal / Tinggi / Sederhana / Rendah, with reasons; ML version later.</td></tr>
+      <tr><td class="ctr"><span class="e">E7</span></td><td>Decision support</td><td>One recommended next action per case; officer accepts or overrides; overrides logged.</td></tr>
+      <tr><td class="ctr"><span class="e">E8</span></td><td>Population forecaster</td><td>New-reman forecast per depot (now) and headcount forecast (once exit dates exist).</td></tr>
+      <tr><td class="ctr"><span class="e">E9</span></td><td>Insight &amp; report generator</td><td>KPI rules + LLM narrative from computed numbers only; monthly PDF / XLSX; infographic later.</td></tr>
+      <tr><td class="ctr"><span class="e">E10</span></td><td>Audit, access &amp; exports</td><td>Roles (officer / depot head / HQ), audit trail, masking of NAMA and CATATAN, downloads.</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ============================= 4 ============================= -->
+<section class="card">
+  <h2><span class="num">4.</span> System Architecture</h2>
+  <p class="sub">Five layered tiers. UC-1 sits at the top; the AI elements sit in the shared core (L3).</p>
+
+  <svg viewBox="0 0 820 620" role="img" style="font-family:inherit"
+       aria-label="Layered architecture: L1 presentation, L2 services, L3 intelligence core, L4 data, L5 platform">
+    <defs>
+      <marker id="a" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L7,3 L0,6 Z" fill="#5a6b86"/></marker>
+      <marker id="g" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L7,3 L0,6 Z" fill="#0d7a5f"/></marker>
+    </defs>
+
+    <rect x="30" y="16" width="760" height="92" rx="12" fill="#e8f0fb" stroke="#1b4d8f" stroke-width="1.6"/>
+    <text x="46" y="38" font-size="13" font-weight="700" fill="#12203a">L1 &mdash; PRESENTATION (web app)</text>
+    <g font-size="10.5" font-weight="700" text-anchor="middle">
+      <rect x="40"  y="48" width="118" height="46" rx="8" fill="#fff" stroke="#1b4d8f" stroke-width="1.4"/><text x="99"  y="68" fill="#1b4d8f">Data Entry</text><text x="99"  y="82" font-weight="400" fill="#5a6b86">UC-1</text>
+      <rect x="166" y="48" width="118" height="46" rx="8" fill="#fff" stroke="#1b4d8f" stroke-width="1.4"/><text x="225" y="68" fill="#1b4d8f">Dashboard</text><text x="225" y="82" font-weight="400" fill="#5a6b86">UC-1</text>
+      <rect x="292" y="48" width="118" height="46" rx="8" fill="#fff" stroke="#8fa3c0"/><text x="351" y="68" fill="#1b4d8f">Reman Tracker</text><text x="351" y="82" font-weight="400" fill="#5a6b86">UC-2</text>
+      <rect x="418" y="48" width="118" height="46" rx="8" fill="#fff" stroke="#8fa3c0"/><text x="477" y="68" fill="#1b4d8f">Priority Worklist</text><text x="477" y="82" font-weight="400" fill="#5a6b86">UC-2</text>
+      <rect x="544" y="48" width="118" height="46" rx="8" fill="#fff" stroke="#8fa3c0"/><text x="603" y="68" fill="#1b4d8f">Forecast</text><text x="603" y="82" font-weight="400" fill="#5a6b86">UC-3</text>
+      <rect x="670" y="48" width="112" height="46" rx="8" fill="#fff" stroke="#8fa3c0"/><text x="726" y="68" fill="#1b4d8f">Reports</text><text x="726" y="82" font-weight="400" fill="#5a6b86">UC-4</text>
+    </g>
+
+    <line x1="410" y1="108" x2="410" y2="130" stroke="#5a6b86" stroke-width="1.6" marker-end="url(#a)"/>
+    <text x="420" y="124" font-size="10" fill="#5a6b86">save / update &middot; view &middot; export</text>
+
+    <rect x="30" y="130" width="760" height="76" rx="12" fill="#f3f4f7" stroke="#5a6b86" stroke-width="1.4"/>
+    <text x="46" y="152" font-size="13" font-weight="700" fill="#12203a">L2 &mdash; APPLICATION SERVICES &amp; TRIGGERS</text>
+    <g font-size="10" fill="#2c3e5e" text-anchor="middle">
+      <rect x="40"  y="160" width="100" height="36" rx="7" fill="#fff" stroke="#8fa3c0"/><text x="90"  y="182">Capture</text>
+      <rect x="148" y="160" width="100" height="36" rx="7" fill="#fff" stroke="#8fa3c0"/><text x="198" y="182">Validate &amp; clean</text>
+      <rect x="256" y="160" width="100" height="36" rx="7" fill="#fff" stroke="#8fa3c0"/><text x="306" y="182">On-save event</text>
+      <rect x="364" y="160" width="100" height="36" rx="7" fill="#fff" stroke="#8fa3c0"/><text x="414" y="182">Daily job</text>
+      <rect x="472" y="160" width="100" height="36" rx="7" fill="#fff" stroke="#8fa3c0"/><text x="522" y="182">Monthly job</text>
+      <rect x="580" y="160" width="100" height="36" rx="7" fill="#fff" stroke="#8fa3c0"/><text x="630" y="182">Notify</text>
+      <rect x="688" y="160" width="94"  height="36" rx="7" fill="#fff" stroke="#8fa3c0"/><text x="735" y="182">Export &middot; Audit</text>
+    </g>
+
+    <line x1="410" y1="206" x2="410" y2="228" stroke="#5a6b86" stroke-width="1.6" marker-end="url(#a)"/>
+
+    <rect x="30" y="228" width="760" height="160" rx="12" fill="#e7f6ef" stroke="#0d7a5f" stroke-width="1.8"/>
+    <text x="46" y="250" font-size="13" font-weight="700" fill="#0d7a5f">L3 &mdash; INTELLIGENCE (shared core)</text>
+    <text x="46" y="268" font-size="10" fill="#0d7a5f">UC-2 per-case chain</text>
+    <g font-size="10.5" font-weight="700" text-anchor="middle">
+      <rect x="46"  y="274" width="200" height="46" rx="8" fill="#fff" stroke="#0d7a5f"/><text x="146" y="294" fill="#0d7a5f">Reman Engine</text><text x="146" y="308" font-weight="400" fill="#5a6b86">E5 countdown &middot; alert &middot; draft</text>
+      <rect x="292" y="274" width="200" height="46" rx="8" fill="#fff" stroke="#0d7a5f"/><text x="392" y="294" fill="#0d7a5f">Risk Scoring</text><text x="392" y="308" font-weight="400" fill="#5a6b86">E6 score &middot; priority label</text>
+      <rect x="538" y="274" width="240" height="46" rx="8" fill="#fff" stroke="#0d7a5f"/><text x="658" y="294" fill="#0d7a5f">Decision Support</text><text x="658" y="308" font-weight="400" fill="#5a6b86">E7 recommended action + reasons</text>
+      <rect x="46"  y="330" width="366" height="46" rx="8" fill="#fff" stroke="#0d7a5f"/><text x="229" y="350" fill="#0d7a5f">Population Forecaster</text><text x="229" y="364" font-weight="400" fill="#5a6b86">E8 UC-3 &middot; per depot</text>
+      <rect x="422" y="330" width="356" height="46" rx="8" fill="#fff" stroke="#0d7a5f"/><text x="600" y="350" fill="#0d7a5f">Insight &amp; Report Generator</text><text x="600" y="364" font-weight="400" fill="#5a6b86">E9 UC-4 &middot; KPI rules + LLM narrative</text>
+    </g>
+    <line x1="246" y1="297" x2="290" y2="297" stroke="#0d7a5f" stroke-width="1.6" marker-end="url(#g)"/>
+    <line x1="492" y1="297" x2="536" y2="297" stroke="#0d7a5f" stroke-width="1.6" marker-end="url(#g)"/>
+
+    <line x1="410" y1="388" x2="410" y2="410" stroke="#5a6b86" stroke-width="1.6" marker-end="url(#a)"/>
+
+    <rect x="30" y="410" width="760" height="92" rx="12" fill="#eef3fa" stroke="#2f7dc4" stroke-width="1.5"/>
+    <text x="46" y="432" font-size="13" font-weight="700" fill="#12203a">L4 &mdash; DATA</text>
+    <g font-size="10" fill="#2c3e5e" text-anchor="middle">
+      <rect x="40"  y="442" width="180" height="46" rx="8" fill="#fff" stroke="#8fa3c0"/><text x="130" y="462" font-weight="700" fill="#1b4d8f">Reman table</text><text x="130" y="476">14 columns, cleaned</text>
+      <rect x="226" y="442" width="180" height="46" rx="8" fill="#fff" stroke="#8fa3c0"/><text x="316" y="462" font-weight="700" fill="#1b4d8f">Event log</text><text x="316" y="476">NO.REMAN &middot; change &middot; time</text>
+      <rect x="412" y="442" width="180" height="46" rx="8" fill="#fff" stroke="#8fa3c0"/><text x="502" y="462" font-weight="700" fill="#1b4d8f">Results store</text><text x="502" y="476">scores &middot; actions &middot; forecasts</text>
+      <rect x="598" y="442" width="184" height="46" rx="8" fill="#fff" stroke="#8fa3c0"/><text x="690" y="462" font-weight="700" fill="#1b4d8f">Reference &amp; audit</text><text x="690" y="476">code lists &middot; depots &middot; officers</text>
+    </g>
+
+    <line x1="410" y1="502" x2="410" y2="522" stroke="#5a6b86" stroke-width="1.6" marker-end="url(#a)"/>
+
+    <rect x="30" y="522" width="760" height="86" rx="12" fill="#fdf6ec" stroke="#b7791f" stroke-width="1.5"/>
+    <text x="46" y="544" font-size="13" font-weight="700" fill="#6b4e14">L5 &mdash; PLATFORM / STORAGE (pilot &rarr; production)</text>
+    <text x="46" y="564" font-size="10.5" fill="#2c3e5e">Pilot (on-prem): Streamlit app &middot; PostgreSQL &middot; scheduled Python jobs &middot; on-prem LLM for report narrative.</text>
+    <text x="46" y="580" font-size="10.5" fill="#2c3e5e">Production (AWS option): SSO &rarr; ECS app &middot; RDS PostgreSQL &middot; S3 + Glue &middot; SageMaker &middot; EventBridge + Lambda &middot; SNS alerts &middot; Tableau.</text>
+    <text x="46" y="596" font-size="10.5" fill="#2c3e5e">Hosting must follow government data-residency and classification rules &mdash; confirm before choosing cloud.</text>
+  </svg>
+
+  <div class="legend">
+    <span><span class="swatch" style="background:#1b4d8f"></span>Presentation</span>
+    <span><span class="swatch" style="background:#5a6b86"></span>Services / triggers</span>
+    <span><span class="swatch" style="background:#0d7a5f"></span>Intelligence core (L3)</span>
+    <span><span class="swatch" style="background:#2f7dc4"></span>Data layer</span>
+    <span><span class="swatch" style="background:#b7791f"></span>Platform / storage</span>
+  </div>
+</section>
+
+<!-- ============================= 5 ============================= -->
+<section class="card">
+  <h2><span class="num">5.</span> The Use Cases</h2>
+  <p class="sub">Four use cases, each with problem, actors, inputs, approach, outputs and KPIs.</p>
+
+  <h3>UC-1 &nbsp;Interactive Monitoring Dashboard (with data entry)</h3>
+  <table><tbody>
+    <tr><th style="width:150px">Problem</th><td>The reman register is one long Excel sheet; totals by depot, nationality, offence or officer are counted by hand, and nobody sees the picture until someone compiles it.</td></tr>
+    <tr><th>Actors</th><td>Reman / depot officer (key-in); investigating officer; depot head; HQ management.</td></tr>
+    <tr><th>Inputs</th><td>The 14 columns (section 2.1) via form or Excel upload; derived fields (2.2); UC-2 and UC-3 results.</td></tr>
+    <tr><th>Approach</th><td><span class="e">E1</span> entry form with dropdowns and date pickers, duplicate check on <code>NO.REMAN</code>, cleaning map for uploads &rarr; <span class="e">E2</span><span class="e">E3</span> store and derive &rarr; <span class="e">E4</span> dashboard refresh on every save (cache cleared; auto-refresh every few minutes for open screens).</td></tr>
+    <tr><th>Outputs</th><td>Six-page interactive dashboard (5.1) with filters, cross-filtering, drill-down to a masked case list, and PNG / XLSX export.</td></tr>
+    <tr><th>KPIs</th><td>Time from save to dashboard (target &lt; 1 min) &middot; % records passing validation &middot; blank <code>NO.REMAN</code> (target 0).</td></tr>
+    <tr><th>Status</th><td><span class="tag v-done">Planned v1</span></td></tr>
+  </tbody></table>
+
+  <h3>5.1 Dashboard pages (built on the current columns)</h3>
+  <table>
+    <caption>Global filters on every page: date range (reman start), DEPOT, WARGANEGARA, Act group, NAMA PEGAWAI, TINDAKAN. Clicking any bar filters the whole page.</caption>
+    <thead><tr><th class="ctr">#</th><th>Page</th><th>Content</th><th>Columns used</th></tr></thead>
+    <tbody>
+      <tr><td class="ctr">1</td><td>Ringkasan</td><td>KPI tiles: jumlah reman (period), reman aktif hari ini, tamat &le; 3 hari, tertunggak, % usir vs bebas; weekly new-reman trend by depot</td><td>TARIKH TAMAT REMAN, DEPOT, TINDAKAN</td></tr>
+      <tr><td class="ctr">2</td><td>Reman Tracker</td><td>Table sorted by days left, coloured by status and UC-2 risk label; filter by depot / officer</td><td>NO.REMAN, TARIKH TAMAT REMAN, NAMA PEGAWAI, DEPOT</td></tr>
+      <tr><td class="ctr">3</td><td>Profil Banduan</td><td>Pecahan warganegara (ranked bar), bangsa within nationality, jantina &amp; kumpulan umur pyramid</td><td>WARGANEGARA, BANGSA, JANTINA, UMUR</td></tr>
+      <tr><td class="ctr">4</td><td>Kesalahan</td><td>Act group share, top 10 sections, warganegara &times; kesalahan heatmap with the highest cell highlighted</td><td>KESALAHAN, WARGANEGARA</td></tr>
+      <tr><td class="ctr">5</td><td>Tindakan &amp; Pegawai</td><td>Outcome breakdown (USIR / +BLI / +RAI / BEBAS / pending); cases per officer and per FAIL (workload, batch size)</td><td>TINDAKAN, NAMA PEGAWAI, FAIL</td></tr>
+      <tr><td class="ctr">6</td><td>Kualiti Data</td><td>Open data issues: blank NO.REMAN, invalid dates, wrong JANTINA, unmapped codes &mdash; each linked to the record to fix</td><td>All</td></tr>
+    </tbody>
+  </table>
+
+  <h3>UC-2 &nbsp;Case Decision Support &mdash; Automated Reman + Risk Priority (per banduan dagang)</h3>
+  <table><tbody>
+    <tr><th style="width:150px">Problem</th><td>Reman end dates are watched by eye and can be missed; there is no consistent way to see which cases need action first, or what that action should be.</td></tr>
+    <tr><th>Actors</th><td>Investigating officer (NAMA PEGAWAI); depot head; legal unit.</td></tr>
+    <tr><th>Inputs</th><td>Reman period, NO.REMAN, KESALAHAN, TINDAKAN, CATATAN flags, UMUR, DEPOT; later TARIKH TANGKAP, STATUS KES, DOKUMEN, extension count.</td></tr>
+    <tr><th>Approach</th><td>Three steps in one chain, on every save and every morning:
+      <ol class="steps">
+        <li><span class="e">E5</span> <strong>Automated reman</strong> &mdash; days left to <code>tarikh_reman_tamat</code> per banduan dagang; alerts to the named officer at 3 days, 1 day, due today and overdue; pre-filled draft extension or outcome paperwork.</li>
+        <li><span class="e">E6</span> <strong>Risk scoring</strong> &mdash; score 0&ndash;100 &rarr;
+          <span class="tag r-crit">Kritikal</span> <span class="tag r-high">Tinggi</span> <span class="tag r-med">Sederhana</span> <span class="tag r-low">Rendah</span>
+          with top reasons (table 5.2). v2 adds an ML probability that the case will need an extension, once outcome history exists.</li>
+        <li><span class="e">E7</span> <strong>Decision support</strong> &mdash; one recommended next action (table 5.3); officer accepts or overrides; overrides are logged.</li>
+      </ol></td></tr>
+    <tr><th>Outputs</th><td>Reman tracker, priority worklist per officer and depot, recommended action, draft paperwork (DOCX / PDF), daily alert.</td></tr>
+    <tr><th>KPIs</th><td>Reman reaching end date with no TINDAKAN (target 0) &middot; % Kritikal actioned within 24 h &middot; recommendation acceptance rate.</td></tr>
+    <tr><th>Status</th><td><span class="tag v-done">Planned v1</span> rules &nbsp;<span class="tag p2">v2</span> ML &nbsp;<span class="tag v-part">Officer approves &amp; submits; the system never files automatically</span></td></tr>
+  </tbody></table>
+
+  <h3>5.2 Risk score v1 &mdash; uses columns available today (illustrative weights)</h3>
+  <table>
+    <thead><tr><th>Risk factor</th><th>Source</th><th class="ctr">Points</th></tr></thead>
+    <tbody>
+      <tr><td>Reman ends today or overdue, TINDAKAN not final</td><td>reman period, TINDAKAN</td><td class="ctr">+40</td></tr>
+      <tr><td>Reman ends in 1&ndash;3 days, TINDAKAN not final</td><td>reman period, TINDAKAN</td><td class="ctr">+25</td></tr>
+      <tr><td>TINDAKAN pending (UJIAN DNA, RAYUAN, blank)</td><td>TINDAKAN</td><td class="ctr">+15</td></tr>
+      <tr><td>Reman period longer than 14 days (extension)</td><td>reman period</td><td class="ctr">+10</td></tr>
+      <tr><td>Repeat case (TANGKAP SEMULA / TAHAN SEMULA)</td><td>CATATAN</td><td class="ctr">+10</td></tr>
+      <tr><td>Age 60 or over (vulnerable)</td><td>UMUR</td><td class="ctr">+10</td></tr>
+      <tr><td>Admin gap: NO.REMAN or FAIL blank</td><td>NO.REMAN, FAIL</td><td class="ctr">+10</td></tr>
+      <tr><td>Depot forecast above 90% capacity (needs capacity table)</td><td>UC-3</td><td class="ctr">+5</td></tr>
+    </tbody>
+  </table>
+
+  <h3>5.3 Labels &amp; recommended actions</h3>
+  <table>
+    <thead><tr><th>Label</th><th>Score</th><th>Recommended action (decision support)</th></tr></thead>
+    <tbody>
+      <tr><td><span class="tag r-crit">Kritikal</span></td><td>&ge; 60</td><td>Act today: record TINDAKAN (usir / bebas) or apply for extension; escalate to depot head.</td></tr>
+      <tr><td><span class="tag r-high">Tinggi</span></td><td>35&ndash;59</td><td>Within 48 h: prepare extension draft or close DNA / rayuan step.</td></tr>
+      <tr><td><span class="tag r-med">Sederhana</span></td><td>15&ndash;34</td><td>This week: fix admin gaps; confirm deportation arrangement.</td></tr>
+      <tr><td><span class="tag r-low">Rendah</span></td><td>&lt; 15</td><td>Monitor.</td></tr>
+    </tbody>
+  </table>
+  <div class="note">
+    <strong>Fairness guard:</strong> WARGANEGARA and BANGSA are not scoring factors. Score distributions are checked across
+    nationalities each month. Weights and cut-offs above are starting proposals for the depot head and legal unit to agree.
+  </div>
+
+  <h3>UC-3 &nbsp;AI Depot Population Forecasting</h3>
+  <table><tbody>
+    <tr><th style="width:150px">Problem</th><td>Intake surges and overcrowding are noticed only after they happen.</td></tr>
+    <tr><th>Actors</th><td>HQ operations; depot heads.</td></tr>
+    <tr><th>Inputs</th><td><strong>Now:</strong> daily new reman per DEPOT (from reman start date); FAIL batches (operations). <strong>Later:</strong> TARIKH USIR / KELUAR and depot capacity.</td></tr>
+    <tr><th>Approach</th><td><span class="e">E8</span> Stage A (current data): forecast weekly new-reman intake per depot for the next 4&ndash;8 weeks (moving-average baseline &rarr; SARIMA / Prophet / gradient boosting on lag + calendar features) &mdash; the 11 months in the sample are enough to start. Stage B (after exit dates are captured): headcount = previous headcount + intake &minus; exits, forecast with a confidence band and a capacity warning.</td></tr>
+    <tr><th>Outputs</th><td>Intake forecast per depot (Stage A); headcount and occupancy forecast with warning list (Stage B); capacity signal to UC-2.</td></tr>
+    <tr><th>KPIs</th><td>Forecast error (MAPE) &middot; days of warning before a capacity breach.</td></tr>
+    <tr><th>Status</th><td><span class="tag v-done">Planned v1</span> Stage A &nbsp;<span class="tag p2">v2</span> Stage B</td></tr>
+  </tbody></table>
+
+  <h3>UC-4 &nbsp;AI Insight &amp; Automated Report Generator (infographic &mdash; later phase)</h3>
+  <table><tbody>
+    <tr><th style="width:150px">Problem</th><td>The monthly report and briefing charts are built by hand; numbers and narrative are inconsistent and late.</td></tr>
+    <tr><th>Actors</th><td>Data analyst; HQ management.</td></tr>
+    <tr><th>Inputs</th><td>Month snapshot of the reman table; UC-2 outcomes; UC-3 forecasts.</td></tr>
+    <tr><th>Approach</th><td>Scheduled job on the 1st &rarr; KPIs (reman by depot, warganegara, Act group, tindakan; change vs last month) &rarr; <span class="e">E9</span> insight rules &rarr; LLM writes the narrative from the KPI table only (no names, no CATATAN) &rarr; analyst reviews and releases.</td></tr>
+    <tr><th>Outputs</th><td>Monthly report (PDF + XLSX appendix). <strong>Later:</strong> infographic &mdash; pecahan warganegara, kesalahan setiap warganegara (both possible now) and sebab lebih 14 hari (needs the new field).</td></tr>
+    <tr><th>KPIs</th><td>Report delivered by working day 2 &middot; numeric mismatches (target 0).</td></tr>
+    <tr><th>Status</th><td><span class="tag v-done">Planned v1</span> report &nbsp;<span class="tag p2">later</span> infographic</td></tr>
+  </tbody></table>
+
+  <h3>5.4 Use-case summary</h3>
+  <table>
+    <thead><tr><th class="ctr">ID</th><th>Use case</th><th>Primary output</th><th>Core technique</th><th class="ctr">Trigger</th><th class="ctr">Runs on current data?</th></tr></thead>
+    <tbody>
+      <tr><td class="id">UC-1</td><td>Interactive Monitoring Dashboard</td><td>6-page dashboard + entry form</td><td>Validation, cleaning, event-driven refresh</td><td class="ctr">On save</td><td class="ctr">Yes</td></tr>
+      <tr><td class="id">UC-2</td><td>Case Decision Support</td><td>Reman tracker, priority worklist, recommended action</td><td>Rule engine + scoring + recommender</td><td class="ctr">On save + daily</td><td class="ctr">Yes (v1)</td></tr>
+      <tr><td class="id">UC-3</td><td>Depot Population Forecasting</td><td>Intake / headcount forecast</td><td>Time-series forecasting</td><td class="ctr">Daily</td><td class="ctr">Intake yes; headcount needs exit date</td></tr>
+      <tr><td class="id">UC-4</td><td>Insight &amp; Report Generator</td><td>Monthly report; infographic later</td><td>KPI rules + LLM narrative</td><td class="ctr">Monthly</td><td class="ctr">Yes</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ============================= 6 ============================= -->
+<section class="card">
+  <h2><span class="num">6.</span> End-to-End Pipeline</h2>
+  <p class="sub">Six stages from capture to deliver; stage 2 now carries the clean-up rules found in the dataset.</p>
+
+  <svg viewBox="0 0 820 400" role="img" style="font-family:inherit"
+       aria-label="Pipeline: capture, validate and clean, log and features, decide (UC-1 to UC-4), guard, deliver">
+    <defs>
+      <marker id="b" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L7,3 L0,6 Z" fill="#5a6b86"/></marker>
+      <marker id="b2" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L7,3 L0,6 Z" fill="#0d7a5f"/></marker>
+    </defs>
+    <g font-size="9.8" text-anchor="middle">
+      <rect x="18"  y="8" width="250" height="22" rx="11" fill="#fff" stroke="#b7791f"/><text x="143" y="23" fill="#6b4e14">On save / upload &rarr; UC-1 refresh + UC-2</text>
+      <rect x="285" y="8" width="250" height="22" rx="11" fill="#fff" stroke="#b7791f"/><text x="410" y="23" fill="#6b4e14">Daily 07:00 &rarr; UC-2 alerts, UC-3 forecast</text>
+      <rect x="552" y="8" width="250" height="22" rx="11" fill="#fff" stroke="#b7791f"/><text x="677" y="23" fill="#6b4e14">Monthly 1st &rarr; UC-4 report, retrain</text>
+    </g>
+    <g font-size="11" font-weight="700" text-anchor="middle">
+      <rect x="18"  y="44" width="120" height="58" rx="10" fill="#eef3fa" stroke="#2f7dc4" stroke-width="1.5"/>
+      <text x="78"  y="66" fill="#1b4d8f">1 &middot; Capture</text><text x="78" y="82" font-weight="400" font-size="9.5" fill="#5a6b86">form &middot; Excel upload</text>
+      <rect x="158" y="44" width="120" height="58" rx="10" fill="#eef3fa" stroke="#2f7dc4" stroke-width="1.5"/>
+      <text x="218" y="66" fill="#1b4d8f">2 &middot; Validate</text><text x="218" y="82" font-weight="400" font-size="9.5" fill="#5a6b86">clean &middot; map codes</text>
+      <rect x="298" y="44" width="120" height="58" rx="10" fill="#eef3fa" stroke="#2f7dc4" stroke-width="1.5"/>
+      <text x="358" y="66" fill="#1b4d8f">3 &middot; Log &amp; derive</text><text x="358" y="82" font-weight="400" font-size="9.5" fill="#5a6b86">days left &middot; Act group</text>
+      <rect x="438" y="44" width="120" height="58" rx="10" fill="#e7f6ef" stroke="#0d7a5f" stroke-width="1.6"/>
+      <text x="498" y="66" fill="#0d7a5f">4 &middot; Decide</text><text x="498" y="82" font-weight="400" font-size="9.5" fill="#5a6b86">by use case &darr;</text>
+      <rect x="578" y="44" width="100" height="58" rx="10" fill="#e7f6ef" stroke="#0d7a5f" stroke-width="1.6"/>
+      <text x="628" y="66" fill="#0d7a5f">5 &middot; Guard</text><text x="628" y="82" font-weight="400" font-size="9.5" fill="#5a6b86">review &middot; mask</text>
+      <rect x="698" y="44" width="104" height="58" rx="10" fill="#fdf6ec" stroke="#b7791f" stroke-width="1.5"/>
+      <text x="750" y="66" fill="#6b4e14">6 &middot; Deliver</text><text x="750" y="82" font-weight="400" font-size="9.5" fill="#5a6b86">refresh &middot; alert</text>
+    </g>
+    <line x1="138" y1="73" x2="156" y2="73" stroke="#5a6b86" stroke-width="1.6" marker-end="url(#b)"/>
+    <line x1="278" y1="73" x2="296" y2="73" stroke="#5a6b86" stroke-width="1.6" marker-end="url(#b)"/>
+    <line x1="418" y1="73" x2="436" y2="73" stroke="#5a6b86" stroke-width="1.6" marker-end="url(#b)"/>
+    <line x1="558" y1="73" x2="576" y2="73" stroke="#5a6b86" stroke-width="1.6" marker-end="url(#b)"/>
+    <line x1="678" y1="73" x2="696" y2="73" stroke="#5a6b86" stroke-width="1.6" marker-end="url(#b)"/>
+
+    <line x1="498" y1="102" x2="498" y2="130" stroke="#0d7a5f" stroke-width="1.6" marker-end="url(#b2)"/>
+    <rect x="18" y="130" width="784" height="86" rx="12" fill="#f7fbf9" stroke="#0d7a5f" stroke-width="1.4"/>
+    <text x="30" y="150" font-size="10.5" font-weight="700" fill="#0d7a5f">4 &middot; Decide &mdash; four branches</text>
+    <g font-size="9.6" fill="#2c3e5e" text-anchor="middle">
+      <rect x="30"  y="158" width="130" height="24" rx="6" fill="#fff" stroke="#1b4d8f"/><text x="95"  y="174">UC-1 aggregate &rarr; refresh</text>
+      <rect x="172" y="158" width="92"  height="24" rx="6" fill="#fff" stroke="#0d7a5f"/><text x="218" y="174">Reman countdown</text>
+      <rect x="280" y="158" width="92"  height="24" rx="6" fill="#fff" stroke="#0d7a5f"/><text x="326" y="174">Risk score</text>
+      <rect x="388" y="158" width="100" height="24" rx="6" fill="#fff" stroke="#0d7a5f"/><text x="438" y="174">Recommendation</text>
+      <rect x="500" y="158" width="140" height="24" rx="6" fill="#fff" stroke="#8fa3c0"/><text x="570" y="174">UC-3 intake &rarr; forecast</text>
+      <rect x="652" y="158" width="140" height="24" rx="6" fill="#fff" stroke="#8fa3c0"/><text x="722" y="174">UC-4 KPIs &rarr; narrative</text>
+    </g>
+    <line x1="264" y1="170" x2="278" y2="170" stroke="#0d7a5f" stroke-width="1.4" marker-end="url(#b2)"/>
+    <line x1="372" y1="170" x2="386" y2="170" stroke="#0d7a5f" stroke-width="1.4" marker-end="url(#b2)"/>
+    <text x="330" y="204" font-size="9.8" fill="#0d7a5f" text-anchor="middle">UC-2 per-case chain (E5 &rarr; E6 &rarr; E7)</text>
+    <text x="646" y="204" font-size="9.8" fill="#5a6b86" text-anchor="middle">UC-2 and UC-3 results also feed UC-1 and UC-4</text>
+
+    <line x1="628" y1="216" x2="628" y2="236" stroke="#0d7a5f" stroke-width="1.6" marker-end="url(#b2)"/>
+    <rect x="18" y="236" width="784" height="66" rx="12" fill="#e7f6ef" stroke="#0d7a5f" stroke-width="1.5"/>
+    <text x="30" y="256" font-size="10.5" font-weight="700" fill="#0d7a5f">5 &middot; Guard &mdash; release gate (hard rules block, soft rules warn)</text>
+    <text x="30" y="276" font-size="10" fill="#2c3e5e">Data: NO.REMAN unique &middot; end date after start &middot; codes from lists &nbsp;|&nbsp; UC-2: officer approves every draft and action &middot; reasons shown &middot; overrides logged</text>
+    <text x="30" y="292" font-size="10" fill="#2c3e5e">UC-3: error within threshold &nbsp;|&nbsp; UC-4: numbers traced &middot; analyst release &nbsp;|&nbsp; All: NAMA and CATATAN masked &middot; nothing personal sent to the LLM</text>
+
+    <line x1="410" y1="302" x2="410" y2="322" stroke="#b7791f" stroke-width="1.6" marker-end="url(#b)"/>
+    <rect x="18" y="322" width="784" height="66" rx="12" fill="#fdf6ec" stroke="#b7791f" stroke-width="1.5"/>
+    <text x="30" y="342" font-size="10.5" font-weight="700" fill="#6b4e14">6 &middot; Deliver &mdash; artefacts + audit record</text>
+    <text x="30" y="362" font-size="10" fill="#2c3e5e">Dashboard refresh &middot; reman alert + draft &middot; priority worklist &middot; intake / headcount forecast &middot; monthly report PDF / XLSX</text>
+    <text x="30" y="378" font-size="10" fill="#2c3e5e">Audit record: who, when, what changed, model version, recommendation, officer decision</text>
+  </svg>
+
+  <h3>6.1 Pipeline stages</h3>
+  <table>
+    <thead><tr><th class="ctr">Stage</th><th>What happens</th><th>Components</th></tr></thead>
+    <tbody>
+      <tr><td class="id ctr">1 Capture</td><td>Form entry, or Excel upload of the reman register (header row detected; leading spaces in column names trimmed).</td><td><span class="e">E1</span></td></tr>
+      <tr><td class="id ctr">2 Validate &amp; clean</td><td>Split and parse the reman period; reject end-before-start; trim and map WARGANEGARA, TINDAKAN, KESALAHAN through code tables; flag non-gender values in JANTINA; require and de-duplicate NO.REMAN.</td><td><span class="e">E1</span></td></tr>
+      <tr><td class="id ctr">3 Log &amp; derive</td><td>Upsert reman table, append event, compute derived fields (2.2) and daily depot counts.</td><td><span class="e">E2</span><span class="e">E3</span></td></tr>
+      <tr><td class="id ctr">4 Decide</td><td>UC-1 aggregates; UC-2 countdown &rarr; score &rarr; recommendation; UC-3 forecast; UC-4 KPIs &rarr; narrative.</td><td><span class="e">E4</span>&ndash;<span class="e">E9</span></td></tr>
+      <tr><td class="id ctr">5 Guard</td><td>Officer approval, explainable scores, fairness check, quality gates, masking.</td><td><span class="e">E10</span></td></tr>
+      <tr><td class="id ctr">6 Deliver</td><td>Refresh dashboard, notify officers, produce downloads, write audit record.</td><td><span class="e">E10</span></td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ============================= 7 ============================= -->
+<section class="card">
+  <h2><span class="num">7.</span> Technique Map</h2>
+  <table>
+    <thead><tr><th>Capability</th><th>Technique</th><th>Library</th><th class="ctr">Used by</th></tr></thead>
+    <tbody>
+      <tr><td>Cleaning &amp; validation</td><td>code-mapping tables, regex for sections and dates</td><td>pandas / pandera</td><td class="ctr">UC-1</td></tr>
+      <tr><td>Dashboard</td><td>filters, cross-filter, drill-down</td><td>Streamlit + Plotly, or Tableau</td><td class="ctr">UC-1</td></tr>
+      <tr><td>Automated reman</td><td>date rules + alert tiers + templated drafts</td><td>pandas / SQL, python-docx</td><td class="ctr">UC-2</td></tr>
+      <tr><td>Risk scoring</td><td>v1 weighted rules; v2 gradient boosting + SHAP</td><td>pandas; scikit-learn / XGBoost / shap</td><td class="ctr">UC-2</td></tr>
+      <tr><td>Decision support</td><td>rules over countdown + score + TINDAKAN; override feedback</td><td>Python rule engine</td><td class="ctr">UC-2</td></tr>
+      <tr><td>Population forecast</td><td>moving average &rarr; SARIMA / Prophet / GBR</td><td>statsmodels / prophet</td><td class="ctr">UC-3</td></tr>
+      <tr><td>Insight &amp; report</td><td>KPI rules + LLM narrative on the KPI table</td><td>on-prem LLM / Amazon Bedrock; ReportLab / openpyxl</td><td class="ctr">UC-4</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ============================= 8 ============================= -->
+<section class="card">
+  <h2><span class="num">8.</span> Build Order &amp; Open Questions</h2>
+  <table>
+    <thead><tr><th class="ctr">Wave</th><th>Scope</th><th>Served by</th><th>Build implication</th></tr></thead>
+    <tbody>
+      <tr><td class="ctr"><span class="tag v-done">Wave 1</span></td><td>UC-1: code tables, cleaning of the 2026 file, entry form, dashboard pages 1&ndash;6</td><td><span class="e">E1</span><span class="e">E2</span><span class="e">E3</span><span class="e">E4</span><span class="e">E10</span></td><td>Clean data and a live dashboard first; everything else reuses them.</td></tr>
+      <tr><td class="ctr"><span class="tag v-done">Wave 2</span></td><td>UC-2 v1: reman countdown, rule score, recommendations, alerts</td><td><span class="e">E5</span><span class="e">E6</span><span class="e">E7</span></td><td>Works on the current columns from day one.</td></tr>
+      <tr><td class="ctr"><span class="tag v-done">Wave 3</span></td><td>UC-4 monthly report; UC-3 Stage A intake forecast</td><td><span class="e">E8</span><span class="e">E9</span></td><td>Both run on the current columns.</td></tr>
+      <tr><td class="ctr"><span class="tag p2">Wave 4</span></td><td>Add new fields (2.4) &rarr; UC-3 Stage B headcount, UC-2 ML score, UC-4 infographic</td><td><span class="e">E6</span><span class="e">E8</span><span class="e">E9</span></td><td>Needs exit dates, status and reasons captured for a few months.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>8.1 Open questions</h3>
+  <table>
+    <thead><tr><th class="ctr">#</th><th>Question</th><th>Who confirms</th></tr></thead>
+    <tbody>
+      <tr><td class="ctr">1</td><td>Can the entry form add TARIKH TANGKAP, TARIKH USIR / KELUAR, STATUS KES, SEBAB LEBIH 14 HARI and extension count?</td><td>Data owner / BPK</td></tr>
+      <tr><td class="ctr">2</td><td>Official code lists for TINDAKAN (meaning of BLI, RAI) and KESALAHAN sections?</td><td>BPK / legal unit</td></tr>
+      <tr><td class="ctr">3</td><td>Reman rules: standard period, extension periods, who applies and approves, alert lead times?</td><td>Legal / enforcement unit</td></tr>
+      <tr><td class="ctr">4</td><td>Risk weights, label cut-offs and action list?</td><td>Depot head</td></tr>
+      <tr><td class="ctr">5</td><td>Capacity of DIKK and DIP; hosting; dashboard tool (Streamlit or Tableau)?</td><td>Operations / ICT</td></tr>
+    </tbody>
+  </table>
+
+  <div class="note">
+    <strong>Bottom line:</strong> the current reman register already supports the dashboard, the reman countdown with risk
+    priority and decision support, the intake forecast and the monthly report. Adding a few fields at entry &mdash; above all
+    the exit date &mdash; unlocks the headcount forecast, the ML risk score and the "sebab lebih 14 hari" infographic.
+  </div>
+</section>
+
+<footer>
+  <p>Use Cases &amp; Pipeline &mdash; SmartDepot Banduan Dagang Monitoring &amp; Decision Support (v3). A design document, not a deployed system.</p>
+  <p class="sub">Input: <code>iringkawal_BPK_2026 - dummy FILLED.xlsx</code> (dummy data, 2,115 rows). Figures in section 2 come from that dummy file and show dashboard content only. No personal data is reproduced here.</p>
+</footer>
+
+</div>
+</body>
+</html>
