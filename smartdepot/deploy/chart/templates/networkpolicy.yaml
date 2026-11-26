@@ -1,0 +1,44 @@
+{{- if .Values.networkPolicy.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "pcai.name" . }}-app
+  labels:
+    {{- include "pcai.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "pcai.selector" . | nindent 6 }}
+      app.kubernetes.io/component: app
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "pcai.selector" . | nindent 14 }}
+              app.kubernetes.io/component: auth
+      ports:
+        - protocol: TCP
+          port: 8000
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "pcai.name" . }}-auth
+  labels:
+    {{- include "pcai.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "pcai.selector" . | nindent 6 }}
+      app.kubernetes.io/component: auth
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.networkPolicy.gatewayNamespace | quote }}
+      ports:
+        - protocol: TCP
+          port: 4180
+{{- end }}

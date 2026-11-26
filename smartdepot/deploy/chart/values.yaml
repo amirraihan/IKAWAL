@@ -1,0 +1,65 @@
+{
+  "replicaCount": 1,
+  "image": {
+    "repository": "",
+    "tag": "0.1.0"
+  },
+  "imagePullSecrets": [],
+  "resources": {
+    "requests": {
+      "cpu": "100m",
+      "memory": "128Mi"
+    },
+    "limits": {
+      "cpu": "1",
+      "memory": "512Mi"
+    }
+  },
+  "routing": {
+    "mode": "istio"
+  },
+  "ezua": {
+    "virtualService": {
+      "endpoint": "",
+      "istioGateway": "istio-system/ezaf-gateway"
+    }
+  },
+  "ingress": {
+    "className": "nginx",
+    "tlsSecretName": "",
+    "annotations": {
+      "nginx.ingress.kubernetes.io/proxy-read-timeout": "210",
+      "nginx.ingress.kubernetes.io/proxy-send-timeout": "210"
+    }
+  },
+  "litellm": {
+    "baseURL": "http://litellm.litellm.svc.cluster.local:4000/v1",
+    "model": "deepseek-ai/deepseek-v4.1-flash",
+    "existingSecret": "pcai-app-litellm"
+  },
+  "auth": {
+    "image": {
+      "repository": "quay.io/oauth2-proxy/oauth2-proxy",
+      "tag": "v7.15.6"
+    },
+    "issuerURL": "",
+    "clientID": "",
+    "existingSecret": "pcai-app-oidc",
+    "allowedGroups": [],
+    "caConfigMap": "",
+    "resources": {
+      "requests": {
+        "cpu": "50m",
+        "memory": "64Mi"
+      },
+      "limits": {
+        "cpu": "500m",
+        "memory": "128Mi"
+      }
+    }
+  },
+  "networkPolicy": {
+    "enabled": true,
+    "gatewayNamespace": "istio-system"
+  }
+}

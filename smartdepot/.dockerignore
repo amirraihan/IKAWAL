@@ -1,0 +1,11 @@
+.local
+.venv
+dist
+.git
+__pycache__
+.pytest_cache
+tests
+docs
+.opencode
+*.log
+.env*

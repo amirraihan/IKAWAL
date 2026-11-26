@@ -1,0 +1,9 @@
+Open https://{{ .Values.ezua.virtualService.endpoint }} after DNS, gateway TLS and Keycloak setup are complete.
+Keycloak callback: https://{{ .Values.ezua.virtualService.endpoint }}/oauth2/callback
+Only the auth service is routed publicly. Do not expose the app service or forward port 8000 for shared use.
+
+Required existing Secrets in {{ .Release.Namespace }}:
+- {{ .Values.litellm.existingSecret }}: api-key
+- {{ .Values.auth.existingSecret }}: client-secret, cookie-secret
+
+Ready pods do not prove login or model access. Run docs/acceptance.md before accepting the deployment.

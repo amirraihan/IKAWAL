@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SmartDepot · UC-2 Case Decision Support</title><link rel="stylesheet" href="/app.css"><script src="/app.js" defer></script></head>
+<body><main>
+<header><span class="eyebrow">HPE PCAI · SMARTDEPOT · UC-2</span><h1>Case Decision Support</h1><p>Automated reman countdown, risk scoring and a recommended action for every banduan dagang case.</p><p id="connection" role="status">Checking connection…</p></header>
+
+<section id="worklist" aria-labelledby="worklist-title">
+  <h2 id="worklist-title">Priority worklist</h2>
+  <div id="uc2-summary" class="tiles" aria-live="polite"><p class="hint">Loading cases…</p></div>
+  <form id="uc2-filters">
+    <label>Priority <select id="uc2-label"><option value="">All</option><option>Kritikal</option><option>Tinggi</option><option>Sederhana</option><option>Rendah</option></select></label>
+    <label>Depot <select id="uc2-depot"><option value="">All</option></select></label>
+    <label class="check"><input type="checkbox" id="uc2-open" checked> Open cases only</label>
+    <button id="uc2-refresh" type="button">Refresh</button>
+  </form>
+  <div class="tablewrap"><table id="uc2-table">
+    <caption id="uc2-caption">Cases sorted by risk score.</caption>
+    <thead><tr><th>NO.REMAN</th><th>Name</th><th>Depot</th><th>Officer</th><th>Days left</th><th>Status</th><th>Priority</th><th>Score</th><th>Recommended action</th></tr></thead>
+    <tbody></tbody>
+  </table></div>
+  <p id="uc2-status" role="status"></p>
+</section>
+
+<section id="assistant" aria-labelledby="assistant-title">
+  <h2 id="assistant-title">Ask about the cases</h2>
+  <p class="hint">Try: “Which cases are critical today? Summarise by depot.”</p>
+  <section id="conversation" aria-live="polite"></section>
+  <form id="chat"><label for="prompt">Your message</label><textarea id="prompt" maxlength="8000" rows="3" required placeholder="Summarise the critical reman cases for DIKK."></textarea><div class="actions"><button id="send" type="submit">Send message</button><button id="download" type="button" disabled>Download answer (.md)</button><button id="reset" type="button">New chat</button></div></form>
+  <p id="status" role="status"></p>
+</section>
+
+<footer>UC-2 rules v1 · Names masked · CATATAN never sent to the model · Conversations stay in this browser tab</footer>
+</main></body></html>
