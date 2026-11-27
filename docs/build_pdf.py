@@ -8,14 +8,16 @@ markdown -> HTML -> PDF (xhtml2pdf).
 Guna:
     python docs/build_pdf.py
 """
-import os, re, base64, zlib, urllib.request
+import os, re, base64, zlib, sys, hashlib, urllib.request
 import markdown
 from xhtml2pdf import pisa
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-MD = os.path.join(HERE, "TDD_IKAWAL.md")
-PDF = os.path.join(HERE, "TDD_IKAWAL.pdf")
+MD = os.path.abspath(sys.argv[1]) if len(sys.argv) > 1 else os.path.join(HERE, "TDD_IKAWAL.md")
+PDF = os.path.splitext(MD)[0] + ".pdf"
 IMG_DIR = os.path.join(HERE, "_diagrams")
+CACHE = os.path.join(IMG_DIR, "cache")
+os.makedirs(CACHE, exist_ok=True)
 os.makedirs(IMG_DIR, exist_ok=True)
 
 src = open(MD, encoding="utf-8").read()
@@ -30,18 +32,29 @@ def fetch(url):
 
 
 def render_mermaid(code):
-    # 1) mermaid.ink
-    try:
-        u = "https://mermaid.ink/img/" + base64.urlsafe_b64encode(code.encode("utf-8")).decode()
-        return fetch(u)
-    except Exception as e1:
-        # 2) kroki.io (deflate + base64url)
+    h = hashlib.sha1(code.encode("utf-8")).hexdigest()
+    cf = os.path.join(CACHE, h + ".bin")
+    if os.path.exists(cf):
+        return open(cf, "rb").read()
+    # 1) mermaid.ink (cuba 3 kali)
+    last = None
+    for _ in range(3):
         try:
-            comp = zlib.compress(code.encode("utf-8"), 9)
-            u = "https://kroki.io/mermaid/png/" + base64.urlsafe_b64encode(comp).decode()
-            return fetch(u)
-        except Exception as e2:
-            raise RuntimeError("mermaid.ink: %r | kroki: %r" % (e1, e2))
+            u = "https://mermaid.ink/img/" + base64.urlsafe_b64encode(code.encode("utf-8")).decode()
+            data = fetch(u)
+            open(cf, "wb").write(data)
+            return data
+        except Exception as e:
+            last = e
+    # 2) kroki.io (deflate + base64url)
+    try:
+        comp = zlib.compress(code.encode("utf-8"), 9)
+        u = "https://kroki.io/mermaid/png/" + base64.urlsafe_b64encode(comp).decode()
+        data = fetch(u)
+        open(cf, "wb").write(data)
+        return data
+    except Exception as e2:
+        raise RuntimeError("mermaid.ink: %r | kroki: %r" % (last, e2))
 
 
 def repl(m):

@@ -15,7 +15,7 @@ detainees (*banduan dagang*) at BPK.
 | `reman35_contoh.html` | Sample preview of the Reman 35 print form. |
 | `devin.png` | Devin assistant avatar. |
 | `data/iringkawal_bpk2026.xlsx` | Bundled dataset (2,115 rows). Load it with `python app.py import`, or upload your own Excel/CSV. |
-| `Ikawal_usecase_pipeline_v3.html` | Use cases & pipeline document (SmartDepot concept). |
+| `Ikawal_usecase_pipeline_v3.html` | Use cases & pipeline document (IKAWAL concept). |
 
 ---
 

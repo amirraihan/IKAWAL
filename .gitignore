@@ -8,3 +8,6 @@ env/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# build intermediates (diagram/peta cache)
+docs/_diagrams/
