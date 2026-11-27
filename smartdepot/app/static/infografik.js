@@ -1,6 +1,10 @@
 const note = document.querySelector('#live-note');
 const source = document.querySelector('#meta-source');
 const number = (value) => Number(value || 0).toLocaleString('ms-MY');
+const clock = () => new Date().toLocaleTimeString('ms-MY');
+
+// Auto-refresh: muat semula angka secara berkala dan apabila tab kembali aktif.
+const REFRESH_MS = 5 * 60 * 1000; // 5 minit
 
 function setText(id, value) {
   const element = document.getElementById(id);
@@ -16,7 +20,7 @@ function setBar(key, count, max) {
 async function loadInfographic() {
   if (note) note.textContent = 'Memuatkan angka…';
   try {
-    const response = await fetch('/api/uc2/summary');
+    const response = await fetch('/api/uc2/summary', {cache: 'no-store'});
     if (response.status === 503) {
       const detail = await response.json();
       if (note) note.textContent = detail.detail || 'Tiada daftar reman dimuatkan.';
@@ -39,12 +43,14 @@ async function loadInfographic() {
     const max = Math.max(...Object.values(counts), 1);
     for (const [key, count] of Object.entries(counts)) setBar(key, count, max);
     if (source) source.textContent = `Sumber: ${data.file} · setakat ${data.generated} · ${number(data.total)} kes diproses.`;
-    if (note) note.textContent = 'Angka langsung daripada daftar; skor bersifat nasihat, pegawai yang memutuskan.';
+    if (note) note.textContent = `Angka langsung daripada daftar · dikemas kini ${clock()} · auto setiap 5 minit.`;
   } catch (error) {
     if (note) note.textContent = error.message;
   }
 }
 
-const refresh = document.querySelector('#infografik-refresh');
-if (refresh) refresh.addEventListener('click', loadInfographic);
 loadInfographic();
+setInterval(loadInfographic, REFRESH_MS);
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) loadInfographic();
+});

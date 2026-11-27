@@ -248,6 +248,8 @@ def test_infografik_page_is_served_and_csp_safe(tmp_path):
         assert css.status_code == 200 and 'text/css' in css.headers['content-type']
         js = client.get('/infografik.js')
         assert js.status_code == 200 and 'javascript' in js.headers['content-type']
+        assert 'setInterval' in js.text  # auto-refresh, not a manual button
+        assert 'infografik-refresh' not in page.text
         assert '/infografik' in client.get('/').text
 
 
