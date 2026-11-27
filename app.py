@@ -897,6 +897,19 @@ def api_data():
     rows = [row_to_dict(r) for r in db.execute("SELECT * FROM records ORDER BY created_at").fetchall()]
     records = rows
 
+    # --- merge in SmartDepot engine results (UC-2/3/4) ---
+    engine = {"by_risk": {}, "alerts": [], "alert_count": 0, "critical": 0, "high": 0}
+    try:
+        from smartdepot.bridge import engine_bundle
+
+        bundle = engine_bundle(records)
+        for r in records:
+            r.update(bundle["by_id"].get(r.get("id"), {}))
+        engine = bundle["panel"]
+    except Exception as exc:  # noqa: BLE001  (engines are optional)
+        engine = {"error": str(exc), "by_risk": {}, "alerts": [],
+                  "alert_count": 0, "critical": 0, "high": 0}
+
     f_filter = request.args.get("filter", "semua")
     f_search = request.args.get("q", "")
     f_officer = request.args.get("officer") or None
@@ -929,6 +942,7 @@ def api_data():
         "stats": stats,
         "counts": counts,
         "officers": officer_stats(records),
+        "engine": engine,
         "charts": {
             "jantina": count_by(records, "jantina"),
             "bangsa": count_by(records, "bangsa"),
@@ -1418,6 +1432,17 @@ def reset_and_import() -> int:
     db.commit()
     db.close()
     return n
+
+
+# --- SmartDepot engines (UC-2/3/4) — optional, additive integration ---------
+# Registered only if the `smartdepot` package and its deps are importable, so the
+# Iringkawal app still runs on its own. Adds /engine and /api/engine/* routes.
+try:  # pragma: no cover
+    from smartdepot.flask_api import engine_bp  # type: ignore
+
+    app.register_blueprint(engine_bp)
+except Exception as _engine_exc:  # noqa: BLE001
+    print(f"[smartdepot] engines not loaded: {_engine_exc}")
 
 
 if __name__ == "__main__":

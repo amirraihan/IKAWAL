@@ -73,6 +73,24 @@
   .kpi .spark{position:absolute;right:-6px;bottom:-10px;font-size:3.4rem;opacity:.09;}
   .kpi.k-bebas{border-color:#C6EDE6;} .kpi.k-bebas .bar{background:linear-gradient(90deg,var(--green),#14C8B6);}
   .kpi.k-bebas .val{color:#0A7A70;}
+
+  /* ================= SmartDepot engine (UC-2/3/4) ================= */
+  .risk-pill{display:inline-block;border-radius:999px;padding:2px 9px;font-size:.68rem;font-weight:800;color:#fff;white-space:nowrap;}
+  .risk-Kritikal{background:#B5322F;} .risk-Tinggi{background:#D9822B;} .risk-Sederhana{background:#2F7DC4;} .risk-Rendah{background:#7F8CA3;}
+  .engine-panel{background:#fff;border:1px solid var(--line);border-radius:var(--r);padding:14px 18px;margin-bottom:20px;box-shadow:var(--shadow-sm);}
+  .engine-panel h3{margin:0 0 10px;font-size:.95rem;color:var(--navy);}
+  .engine-tiles{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:10px;}
+  .engine-tile{border:1px solid var(--line);border-radius:10px;padding:8px 14px;min-width:104px;}
+  .engine-tile b{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);}
+  .engine-tile span{font-size:1.3rem;font-weight:800;color:var(--navy);}
+  .engine-alerts .ea{font-size:.8rem;color:#243856;padding:5px 0;border-bottom:1px dashed var(--line);}
+  .engine-alerts .ea:last-child{border-bottom:none;}
+  .tier-overdue{color:#B5322F;font-weight:800;} .tier-soon{color:#B9720A;font-weight:800;}
+  td.cadangan{max-width:280px;white-space:normal;font-size:.78rem;color:#3a4d6b;}
+  .fc-wrap{position:relative;height:260px;}
+  .fc-table{width:100%;border-collapse:collapse;font-size:.8rem;}
+  .fc-table th,.fc-table td{border:1px solid var(--line);padding:4px 8px;text-align:left;}
+  .fc-table th{background:#eef3fa;}
   .sub2{display:block;font-size:.66rem;color:var(--muted);font-weight:600;margin-top:3px;}
   .bebasinfo{display:none;align-items:center;gap:10px;background:var(--green-soft);border:1px solid #C6EDE6;border-radius:12px;padding:11px 15px;margin-bottom:14px;font-size:.87rem;font-weight:700;color:#0A7A70;}
   .bebasinfo.on{display:flex;} .bebasinfo .big{font-size:1.05rem;}
@@ -281,6 +299,8 @@
   <section class="kpis" id="kpiRow"></section>
   <section class="panel print-report" id="printReport"></section>
   <div id="alertZone"></div>
+  <section class="engine-panel no-print" id="enginePanel" style="display:none"></section>
+  <section class="engine-panel no-print" id="forecastPanel" style="display:none"></section>
   <section class="panel" id="cleanPanel" style="display:none;"></section>
 
   <section class="panel" id="chartsPanel">
@@ -368,7 +388,7 @@
             <th>Nama</th><th>Tarikh Masuk</th><th>Jantina</th><th>Umur</th><th>Bangsa</th><th>Warganegara</th>
             <th>Jenis Kesalahan</th><th>Nombor Reman</th><th>Nombor Fail</th><th>Depot</th>
             <th>Pegawai Handle</th><th>Tarikh Tamat Reman</th><th>Tindakan Selepas Reman</th>
-            <th>Status Semasa</th><th>Surat Rayuan</th><th class="col-aksi">Aksi</th>
+            <th>Status Semasa</th><th>Surat Rayuan</th><th>Risiko</th><th>Amaran</th><th>Cadangan (E7)</th><th class="col-aksi">Aksi</th>
           </tr>
         </thead>
         <tbody id="tbody"></tbody>
@@ -557,6 +577,7 @@ const BLN = ["Januari","Februari","Mac","April","Mei","Jun","Julai","Ogos","Sept
 const PALETTE = ["#1D6FE0","#0FB5A6","#2E86FF","#14C8B6","#1B4079","#F59E0B","#E5484D","#12A594","#6B7C99","#8B5CF6"];
 let state = { filter:"semua", search:"", officer:null, sort:"tarikh" };
 let DATA = null;
+let FORECAST = null;
 let editingId = null;
 let charts = {};
 
@@ -597,11 +618,12 @@ async function refresh(){
   const q = new URLSearchParams({ filter: state.filter, q: state.search, sort: state.sort });
   if(state.officer) q.set("officer", state.officer);
   DATA = await api("/api/data?" + q.toString());
+  try { FORECAST = await api("/api/engine/forecast"); } catch(e){ FORECAST = null; }
   renderAll();
 }
 function renderAll(){
   if(!DATA) return;
-  renderKPI(); renderAlert(); renderChips(); renderOfficers(); renderTable(); renderCharts();
+  renderKPI(); renderAlert(); renderEngine(); renderForecast(); renderChips(); renderOfficers(); renderTable(); renderCharts();
 }
 function renderKPI(){
   const s = DATA.stats;
@@ -631,6 +653,73 @@ function renderAlert(){
     '<button class="abtn" id="alertBtn">Lihat Senarai →</button></div>';
   const b = $("alertBtn");
   if(b) b.onclick = () => { setFilter("urgent"); $("tablePanel").scrollIntoView({behavior:"smooth",block:"start"}); };
+}
+function riskPill(label){
+  if(!label) return '<span style="color:#93A3BC">—</span>';
+  return '<span class="risk-pill risk-'+esc(label)+'">'+esc(label)+'</span>';
+}
+function alertCell(r){
+  const t = r.alert_tier;
+  if(!t || t === "none") return '<span style="color:#93A3BC">—</span>';
+  if(t === "overdue") return '<span class="tier-overdue">Tertunggak</span>';
+  if(t === "due_today") return '<span class="tier-overdue">Tamat hari ini</span>';
+  return '<span class="tier-soon">'+esc(r.hari_berbaki)+' hari</span>';
+}
+function renderEngine(){
+  const panel = $("enginePanel");
+  const e = DATA.engine;
+  if(!panel || !e || e.error){ if(panel) panel.style.display = "none"; return; }
+  const risk = e.by_risk || {};
+  const tiles = [["Kritikal",risk.Kritikal||0],["Tinggi",risk.Tinggi||0],
+                 ["Sederhana",risk.Sederhana||0],["Amaran",e.alert_count||0]]
+    .map(t => '<div class="engine-tile"><b>'+t[0]+'</b><span>'+t[1]+'</span></div>').join("");
+  const alerts = (e.alerts||[]).slice(0,8).map(a => {
+    const when = a.tier === "overdue" ? '<span class="tier-overdue">tertunggak '+(a.hari_berbaki!=null?Math.abs(a.hari_berbaki):"")+' hari</span>'
+               : a.tier === "due_today" ? '<span class="tier-overdue">tamat hari ini</span>'
+               : '<span class="tier-soon">'+(a.hari_berbaki!=null?a.hari_berbaki:"")+' hari</span>';
+    return '<div class="ea">'+riskPill(a.risk_label)+' <b>'+esc(a.no_reman||"-")+'</b> · '+
+      esc(a.depot||"-")+' · '+when+' — '+esc(a.action||"")+'</div>';
+  }).join("");
+  panel.innerHTML = '<h3>🛡️ Enjin SmartDepot — Risiko &amp; Amaran (UC-2)</h3>'+
+    '<div class="engine-tiles">'+tiles+'</div>'+
+    (alerts ? '<div class="engine-alerts">'+alerts+'</div>'
+            : '<div class="sub" style="color:var(--muted)">Tiada kes berisiko / amaran. ✔</div>');
+  panel.style.display = "block";
+}
+function renderForecast(){
+  const panel = $("forecastPanel");
+  if(!panel) return;
+  const F = FORECAST;
+  if(!F || !F.length){ panel.style.display = "none"; return; }
+  const weeks = (F[0].points || []).map(p => p.week.slice(5));
+  const dps = F.filter(f => f.depot !== "SEMUA");
+  const use = dps.length ? dps : F;
+  let body;
+  if(typeof Chart === "undefined"){
+    body = '<div class="sub" style="color:var(--muted)">Chart.js tidak dimuatkan — jadual ramalan:</div>'+
+      '<table class="fc-table"><thead><tr><th>Minggu</th>'+use.map(f=>'<th>'+esc(f.depot)+'</th>').join('')+'</tr></thead><tbody>'+
+      weeks.map((w,i)=>'<tr><td>'+esc(w)+'</td>'+use.map(f=>{const p=f.points[i];return '<td>'+(p&&p.yhat!=null?p.yhat:"-")+'</td>';}).join('')+'</tr>').join('')+
+      '</tbody></table>';
+  } else {
+    body = '<div class="fc-wrap"><canvas id="cForecast"></canvas></div>'+
+      '<div class="sub" style="color:var(--muted);margin-top:6px">Model: '+esc(use.map(f=>f.depot+'='+f.model).join(' · '))+'</div>';
+  }
+  panel.innerHTML = '<h3>📈 Ramalan Kemasukan Reman (UC-3) — mingguan, 8 minggu</h3>'+body;
+  panel.style.display = "block";
+  if(typeof Chart !== "undefined"){
+    makeChart("cForecast", {
+      type:"line",
+      data:{ labels:weeks, datasets: use.map((f,i)=>({
+        label: f.depot+' ('+(f.model||"")+')',
+        data: f.points.map(p=>p.yhat),
+        borderColor: PALETTE[i%PALETTE.length], backgroundColor:"transparent",
+        tension:.3, borderWidth:2, pointRadius:3
+      })) },
+      options:{ responsive:true, maintainAspectRatio:false,
+        plugins:{ legend:{ position:"bottom" } },
+        scales:{ y:{ beginAtZero:true, ticks:{precision:0}, grid:{color:"#EEF3FA"} }, x:{ grid:{display:false} } } }
+    });
+  }
 }
 function renderChips(){
   const c = DATA.counts;
@@ -715,7 +804,7 @@ function renderTable(){
   const bi = $("bebasInfo");
   if(state.filter === "bebas"){ bi.classList.add("on"); bi.innerHTML = '🔓 <span class="big">Senarai Tahanan Yang Sudah Bebas: '+list.length+' orang</span>'; }
   else { bi.classList.remove("on"); bi.innerHTML = ""; }
-  if(!list.length){ tb.innerHTML = '<tr><td colspan="16"><div class="empty-state"><div class="e">📭</div><p>Tiada rekod untuk dipaparkan.</p></div></td></tr>'; return; }
+  if(!list.length){ tb.innerHTML = '<tr><td colspan="19"><div class="empty-state"><div class="e">📭</div><p>Tiada rekod untuk dipaparkan.</p></div></td></tr>'; return; }
   tb.innerHTML = list.map(r => {
     const urgent = isUrgent(r);
     const isDup = dup[(r.nombor_fail||"").trim().toUpperCase()];
@@ -736,6 +825,9 @@ function renderTable(){
       '<td>'+tindakanBadge(r.tindakan)+'</td>'+
       '<td>'+statusCell(r)+'</td>'+
       '<td>'+rayuanBadge(r.surat_rayuan)+'</td>'+
+      '<td>'+riskPill(r.risk_label)+'</td>'+
+      '<td>'+alertCell(r)+'</td>'+
+      '<td class="cadangan">'+esc(r.recommended_action||"-")+'</td>'+
       '<td class="col-aksi"><div class="rowact">'+
         (can("edit") ? '<button class="iconbtn" data-act="edit" data-id="'+r.id+'" title="Edit">✏️</button>' : '')+
         (can("del") ? '<button class="iconbtn del" data-act="del" data-id="'+r.id+'" title="Padam">🗑️</button>' : '')+

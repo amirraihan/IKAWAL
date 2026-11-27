@@ -8,3 +8,8 @@ env/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# SmartDepot engine (UC-2/3/4) local outputs & scratch
+outputs/
+.local-backup/
+data/*dummy*.xlsx
