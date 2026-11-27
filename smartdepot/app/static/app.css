@@ -11,4 +11,6 @@ section#worklist,section#assistant{margin:34px 0}section#worklist{border-top:1px
 .tablewrap{overflow-x:auto;border:1px solid #dae5de;border-radius:12px;background:#fff}table{width:100%;border-collapse:collapse;font-size:13px;min-width:860px}caption{caption-side:top;text-align:left;color:#5b7268;font-size:12.5px;padding:12px 14px 0}th,td{border-bottom:1px solid #e7efe9;padding:9px 12px;text-align:left;vertical-align:top}th{position:sticky;top:0;background:#f1f6f3;color:#245a4b;font-size:11.5px;text-transform:uppercase;letter-spacing:.04em}tbody tr:nth-child(even){background:#fafcfb}td.empty{color:#5b7268;padding:18px 12px}
 .badge{display:inline-block;border-radius:999px;padding:2px 9px;font-size:11.5px;font-weight:700;color:#fff}.badge.kritikal{background:#b5322f}.badge.tinggi{background:#d9822b}.badge.sederhana{background:#2f7dc4}.badge.rendah{background:#7f8ca3}
 #uc2-status{min-height:22px;color:#49685f}
+#uc2-filters a.linkbtn{font:inherit;font-weight:600;text-decoration:none;background:#fff;color:#175c48;border:1px solid #00785e;border-radius:7px;padding:10px 16px;cursor:pointer}
+#uc2-filters a.linkbtn:hover{background:#e8efeb}
 @media (max-width:640px){#uc2-filters{align-items:stretch;flex-direction:column}}

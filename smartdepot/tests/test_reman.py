@@ -234,6 +234,23 @@ def test_priority_tool_without_register_is_unavailable():
     assert 'error' in execute_tool('list_priority_cases', '{}')
 
 
+def test_infografik_page_is_served_and_csp_safe(tmp_path):
+    path = write_xlsx(tmp_path / 'reman.xlsx', HEADER, register_rows())
+    with client_for(path) as client:
+        page = client.get('/infografik')
+        assert page.status_code == 200
+        assert 'Sokongan Keputusan Kes' in page.text
+        # CSP keeps style-src/script-src 'self': no inline style or script
+        assert '<style' not in page.text
+        assert '<script>' not in page.text
+        assert '/infografik.css' in page.text and '/infografik.js' in page.text
+        css = client.get('/infografik.css')
+        assert css.status_code == 200 and 'text/css' in css.headers['content-type']
+        js = client.get('/infografik.js')
+        assert js.status_code == 200 and 'javascript' in js.headers['content-type']
+        assert '/infografik' in client.get('/').text
+
+
 # --------------------------------------------------------------------------- exports
 def test_xlsx_writer_round_trips(tmp_path):
     body = xlsx.dumps([['NO.REMAN', 'Skor'], ['26(1)BD', 55], ['26(2)BD', 15]])

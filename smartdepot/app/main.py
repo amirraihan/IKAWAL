@@ -136,6 +136,18 @@ def create_app(settings=None, transport=None):
     async def stylesheet():
         return FileResponse(ROOT / 'app/static/app.css', media_type='text/css')
 
+    @app.get('/infografik')
+    async def infographic():
+        return FileResponse(ROOT / 'app/static/infografik.html')
+
+    @app.get('/infografik.css')
+    async def infographic_css():
+        return FileResponse(ROOT / 'app/static/infografik.css', media_type='text/css')
+
+    @app.get('/infografik.js')
+    async def infographic_js():
+        return FileResponse(ROOT / 'app/static/infografik.js', media_type='application/javascript')
+
     @app.get('/api/info')
     async def info(request: Request):
         return {'model': settings.model, 'tools_enabled': settings.model in settings.tool_models, 'identity': request.headers.get('x-forwarded-preferred-username', 'Pengguna bengkel tempatan'), 'auth_mode': settings.auth_mode}

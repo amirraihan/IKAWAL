@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="ms">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Infografik UC-2 — Sokongan Keputusan Kes (SmartDepot)</title>
+<link rel="stylesheet" href="/infografik.css" />
+<script src="/infografik.js" defer></script>
+</head>
+<body>
+<div class="page">
+
+  <div class="hero">
+    <p class="eyebrow">SmartDepot · Kes Penggunaan 2</p>
+    <h1>Sokongan Keputusan Kes</h1>
+    <p>Kiraan detik reman automatik, skor risiko dengan sebab, dan <strong>satu tindakan disyorkan</strong>
+       bagi setiap kes banduan dagang — setiap kali rekod disimpan dan setiap pagi.</p>
+    <div class="chips">
+      <span class="chip">Cabang: IKAWAL-UC2</span>
+      <span class="chip">Enjin peraturan (bukan model)</span>
+      <span class="chip">Status: dilaksanakan &amp; diuji</span>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <a class="linkbtn" href="/">&#8592; Kembali ke senarai keutamaan</a>
+    <button class="linkbtn" id="infografik-refresh" type="button">Muat semula angka</button>
+  </div>
+
+  <div class="body">
+
+    <h2><span class="n">1</span> Kadar risiko hari ini</h2>
+    <p class="lead" id="meta-source">Memuatkan angka daripada daftar…</p>
+    <div class="kpis">
+      <div class="kpi"><b>Jumlah kes</b><span class="v" id="kpi-total">–</span><span class="u">Baris dalam daftar</span></div>
+      <div class="kpi"><b>Kes terbuka</b><span class="v v-brand" id="kpi-open">–</span><span class="u">Perlu tindakan</span></div>
+      <div class="kpi"><b>Tertunggak</b><span class="v v-high" id="kpi-overdue">–</span><span class="u">Tamat tarikh, belum muktamad</span></div>
+      <div class="kpi"><b>Rekod tidak sah</b><span class="v v-muted" id="kpi-invalid">–</span><span class="u">Tarikh tidak boleh dibaca</span></div>
+    </div>
+
+    <h2><span class="n">2</span> Taburan keutamaan</h2>
+    <p class="lead">Bar berkadar dengan bilangan kes; hanya kes belum selesai yang perlu perhatian.</p>
+    <div class="bars">
+      <div class="bar"><span class="lab lab-crit">Kritikal</span><div class="track"><div class="fill c-crit" id="fill-kritikal"></div></div><span class="cnt" id="cnt-kritikal">–</span></div>
+      <div class="bar"><span class="lab lab-high">Tinggi</span><div class="track"><div class="fill c-high" id="fill-tinggi"></div></div><span class="cnt" id="cnt-tinggi">–</span></div>
+      <div class="bar"><span class="lab lab-med">Sederhana</span><div class="track"><div class="fill c-med" id="fill-sederhana"></div></div><span class="cnt" id="cnt-sederhana">–</span></div>
+      <div class="bar"><span class="lab lab-low">Rendah</span><div class="track"><div class="fill c-low" id="fill-rendah"></div></div><span class="cnt" id="cnt-rendah">–</span></div>
+      <div class="bar"><span class="lab lab-bad">Tidak sah</span><div class="track"><div class="fill c-bad" id="fill-tidaksah"></div></div><span class="cnt" id="cnt-tidaksah">–</span></div>
+    </div>
+    <p class="lead" id="live-note" role="status"></p>
+
+    <h2><span class="n">3</span> Rantaian tiga langkah</h2>
+    <div class="chain">
+      <div class="step"><div class="t">E5 · Kiraan detik reman</div><div class="d">Hari berbaki ke tarikh tamat; amaran 3 hari / 1 hari / hari ini / tertunggak</div></div>
+      <div class="arrow">&rarr;</div>
+      <div class="step"><div class="t">E6 · Skor risiko</div><div class="d">Skor 0–100 daripada pemberat tetap, dengan sebab yang boleh disemak</div></div>
+      <div class="arrow">&rarr;</div>
+      <div class="step"><div class="t">E7 · Tindakan disyorkan</div><div class="d">Satu tindakan seterusnya; pegawai terima atau ubah (diack)</div></div>
+    </div>
+
+    <h2><span class="n">4</span> Label dan tindakan</h2>
+    <div class="two">
+      <div class="card">
+        <h3>Jalur keutamaan (skor)</h3>
+        <div class="rule"><span class="tag tag-crit">Kritikal</span><span class="sc">&ge;&nbsp;60</span><span class="ac">Bertindak hari ini: rakam tindakan atau mohon lanjutan; naikkan kepada ketua depot.</span></div>
+        <div class="rule"><span class="tag tag-high">Tinggi</span><span class="sc">35–59</span><span class="ac">Dalam 48 jam: siapkan draf lanjutan atau selesaikan ujian DNA / rayuan.</span></div>
+        <div class="rule"><span class="tag tag-med">Sederhana</span><span class="sc">15–34</span><span class="ac">Minggu ini: betulkan jurang pentadbiran; sahkan urusan usir.</span></div>
+        <div class="rule"><span class="tag tag-low">Rendah</span><span class="sc">&lt;&nbsp;15</span><span class="ac">Pantau.</span></div>
+      </div>
+      <div class="case">
+        <div class="id">Contoh: 26(703)BD</div>
+        <div class="meta">DIKK · tarikh tamat 2026-05-03 · hari berbaki −208 · <b>Tinggi · 55</b></div>
+        <div class="case-note"><b>Sebab skor:</b></div>
+        <ul>
+          <li>Reman tamat/tertunggak &amp; tindakan belum muktamad (+40)</li>
+          <li>Tindakan belum muktamad (kosong/DNA/rayuan) (+15)</li>
+        </ul>
+        <div class="case-note spaced"><b>Tindakan disyorkan:</b> dalam 48 jam, siapkan draf lanjutan reman atau selesaikan langkah ujian DNA / rayuan.</div>
+      </div>
+    </div>
+
+    <h2><span class="n">5</span> Pemberat skor risiko (v1)</h2>
+    <table>
+      <thead><tr><th>Faktor risiko</th><th class="right">Mata</th></tr></thead>
+      <tbody>
+        <tr><td>Reman tamat hari ini / tertunggak, tindakan belum muktamad</td><td class="pts">+40</td></tr>
+        <tr><td>Reman tamat dalam 1–3 hari, tindakan belum muktamad</td><td class="pts">+25</td></tr>
+        <tr><td>Tindakan belum muktamad (ujian DNA, rayuan, kosong)</td><td class="pts">+15</td></tr>
+        <tr><td>Tempoh reman melebihi 14 hari (lanjutan)</td><td class="pts">+10</td></tr>
+        <tr><td>Kes ulangan (TANGKAP / TAHAN SEMULA)</td><td class="pts">+10</td></tr>
+        <tr><td>Umur 60 tahun ke atas</td><td class="pts">+10</td></tr>
+        <tr><td>Jurang pentadbiran: NO.REMAN atau FAIL kosong</td><td class="pts">+10</td></tr>
+        <tr><td>Depot melebihi 90% kapasiti (perlu jadual kapasiti)</td><td class="pts">+5</td></tr>
+      </tbody>
+    </table>
+    <p class="lead lead-tight">Skor dihadkan pada 100. Jantina, bangsa dan warganegara <b>tidak</b> menjadi faktor.</p>
+
+    <h2><span class="n">6</span> Saluran hujung ke hujung</h2>
+    <div class="pipe">
+      <div class="pstep p1">1 · Tangkap<br/>borang · Excel</div>
+      <div class="pstep p2">2 · Sahkan<br/>bersih · peta kod</div>
+      <div class="pstep p3">3 · Log &amp; terbit<br/>hari berbaki · akta</div>
+      <div class="pstep p4">4 · Tentukan<br/>detik &rarr; skor &rarr; tindakan</div>
+      <div class="pstep p5">5 · Kawal<br/>pegawai lulus</div>
+      <div class="pstep p6">6 · Sedia<br/>papan · eksport</div>
+    </div>
+
+    <h2><span class="n">7</span> Fakta penting</h2>
+    <div class="facts">
+      <div class="fact"><span class="ic">&#128274;</span><span><b>Nama ditopeng</b>Contoh: <code>M******* R**** B** A* B******</code>. CATATAN tidak dihantar kepada model atau eksport.</span></div>
+      <div class="fact"><span class="ic">&#128196;</span><span><b>Eksport</b>Senarai semasa boleh dimuat turun sebagai Excel, PDF atau CSV.</span></div>
+      <div class="fact"><span class="ic">&#9881;</span><span><b>Tanpa kebergantungan baharu</b>FastAPI pada permulaan PCAI; penulis xlsx/PDF daripada pustaka piawai.</span></div>
+      <div class="fact"><span class="ic">&#9878;</span><span><b>Boleh dijelaskan</b>Skor peraturan, bukan model; pegawai memutuskan dan menandatangani.</span></div>
+    </div>
+
+    <div class="foot">
+      <span>Infografik UC-2 · SmartDepot Banduan Dagang · berdasarkan dokumen <code>TDD-IKAWAL-001</code></span>
+      <span>Angka bersifat nasihat · dikemas kini secara langsung daripada daftar</span>
+    </div>
+  </div>
+</div>
+</body>
+</html>
