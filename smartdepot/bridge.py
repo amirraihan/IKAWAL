@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from .config import today as _today
-from .constants import DEPOTS, DEPOT_UNKNOWN
+from .constants import DEPOTS, DEPOT_DISPLAY, DEPOT_UNKNOWN
 from .engines import decision_support, reman_engine, risk_scoring
 from .features.derive import compute_features
 from .forecast import forecaster
@@ -190,6 +190,64 @@ def forecast(db_path: str | Path | None = None, as_of: date | None = None) -> li
 
     _FORECAST_CACHE[key] = (now, out)
     return out
+
+
+def forecast_dashboard(db_path: str | Path | None = None, as_of: date | None = None,
+                       history_weeks: int = 26) -> dict[str, Any]:
+    """Data for the dedicated UC-3 dashboard: per-depot history + forecast + capacity."""
+    key = ("dash3", str(db_path or default_db_path()), as_of.isoformat() if as_of else "")
+    cached = _FORECAST_CACHE.get(key)
+    now = time.time()
+    if cached and now - cached[0] < _FORECAST_TTL:
+        return cached[1]
+
+    from .config import get_settings
+
+    rows = enrich(read_flask_records(db_path), as_of=as_of)
+    df = _frame(rows)
+    depots: list[dict[str, Any]] = []
+    for res in forecaster.forecast_all_depots(df):
+        hist = forecaster.weekly_intake(df, None if res.depot == "SEMUA" else res.depot)
+        hist = hist.tail(history_weeks)
+        history = [{"week": idx.date().isoformat(), "n": int(v)} for idx, v in hist.items()]
+        points = []
+        for _, r in res.horizon.iterrows():
+            wk = r["week_start"]
+            points.append({
+                "week": wk.date().isoformat() if hasattr(wk, "date") else str(wk),
+                "yhat": round(float(r["yhat"]), 1),
+                "lo": round(float(r["yhat_lo"]), 1),
+                "hi": round(float(r["yhat_hi"]), 1),
+            })
+        depots.append({
+            "depot": res.depot,
+            "display": DEPOT_DISPLAY.get(res.depot, res.depot),
+            "model": res.model,
+            "mape": res.mape,
+            "history": history,
+            "forecast": points,
+            "next_week": points[0]["yhat"] if points else None,
+            "total_horizon": round(sum(p["yhat"] for p in points), 1) if points else 0,
+        })
+
+    head = forecaster.current_headcount(df, as_of=as_of)
+    capacity = []
+    for depot, cap in get_settings().depot_capacity.items():
+        hc = head.get(depot, 0)
+        capacity.append({
+            "depot": depot, "display": DEPOT_DISPLAY.get(depot, depot),
+            "headcount": hc, "capacity": cap,
+            "pct": round(hc / cap, 3) if cap else 0,
+        })
+
+    payload = {
+        "depots": depots,
+        "capacity": capacity,
+        "warnings": forecaster.capacity_warnings(df, as_of=as_of),
+        "total_headcount": int(sum(head.values())),
+    }
+    _FORECAST_CACHE[key] = (now, payload)
+    return payload
 
 
 def monthly_report(db_path: str | Path | None = None, year: int = 0,
