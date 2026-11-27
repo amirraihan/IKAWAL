@@ -393,7 +393,39 @@ label.fld input:focus,label.fld select:focus{border-color:var(--gold);box-shadow
   .login-role{grid-template-columns:1fr}
   .bar-row{grid-template-columns:96px 1fr 44px}
 }
+
+/* ---------- Analitik Reman (integrasi dashboard/index.html) ---------- */
+.rm-chips{display:flex;flex-wrap:wrap;gap:7px;align-items:center}
+.rm-chip{background:var(--navy);color:#fff;border-radius:20px;padding:4px 12px;font-size:11.5px;font-weight:600;border:0;cursor:pointer}
+.rm-chip.grey{background:#eef2f7;color:var(--muted)}
+.rm-kpi{display:grid;grid-template-columns:repeat(4,1fr);gap:15px;margin-bottom:16px}
+.rm-card{background:#fff;border-radius:14px;border:1px solid var(--line-2);box-shadow:var(--shadow-sm);padding:16px}
+.rm-card:hover{box-shadow:0 12px 26px rgba(15,35,64,.1)}
+.rm-card h3{font-size:14px;color:var(--navy);font-weight:700;margin-bottom:2px}
+.rm-card .sub{color:var(--muted);font-size:11.5px;margin-bottom:10px}
+.rm-card .kpi-val{font-size:28px}
+.rm-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.rm-grid .full{grid-column:1/-1}
+.rm-pyr-row{display:grid;grid-template-columns:1fr 54px 1fr;align-items:center;gap:8px;margin-bottom:6px}
+.rm-pyr-l{display:flex;justify-content:flex-end;align-items:center;gap:6px}
+.rm-pyr-r{display:flex;align-items:center;gap:6px}
+.rm-pyr-g{font-size:11px;color:var(--muted);text-align:center;font-weight:600}
+.rm-pyr-bar{height:14px;border-radius:4px;display:inline-block;min-width:2px}
+.rm-pyr-l b,.rm-pyr-r b{font-size:11px;color:var(--navy)}
+.rm-tree{display:flex;gap:6px;height:250px}
+.rm-tree-col{display:flex;flex-direction:column;gap:4px;flex-basis:0;min-width:70px}
+.rm-tree-head{color:#fff;font-size:11px;font-weight:700;text-align:center;padding:4px;border-radius:6px;cursor:pointer}
+.rm-tree-cell{color:#fff;border-radius:6px;display:flex;align-items:center;justify-content:center;text-align:center;font-size:10.5px;flex-basis:0;min-height:26px;padding:2px}
+.rm-heat{width:100%;border-collapse:collapse;font-size:11.5px}
+.rm-heat th{color:var(--muted);font-weight:600;padding:6px;text-align:center}
+.rm-heat td{padding:3px}
+.rm-heat-r{color:var(--navy);font-weight:600;white-space:nowrap}
+.rm-heat-c{border-radius:6px;text-align:center;padding:9px 4px;font-weight:700;cursor:pointer}
+.jim-star{color:#C5A880;font-size:22px;text-shadow:0 0 3px #000}
+@media(max-width:900px){ .rm-kpi{grid-template-columns:1fr}.rm-grid{grid-template-columns:1fr} }
 </style>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 <body>
 
@@ -472,6 +504,10 @@ label.fld input:focus,label.fld select:focus{border-color:var(--gold);box-shadow
     <div class="navitem" data-view="laporan">
       <svg viewBox="0 0 24 24" fill="none" stroke-width="1.9"><path d="M6 2h9l5 5v15a1 1 0 01-1 1H6a1 1 0 01-1-1V3a1 1 0 011-1z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h6"/></svg>
       Laporan PDF
+    </div>
+    <div class="navitem" data-view="reman">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="1.9"><path d="M4 19V5M4 19h16"/><path d="M8 19v-6M12 19V9M16 19v-9"/></svg>
+      Analitik Reman
     </div>
     <div class="sidebar-foot">
       <b style="color:var(--navy)">IRINGKAWAL BPK 2026</b><br>
@@ -642,6 +678,28 @@ label.fld input:focus,label.fld select:focus{border-color:var(--gold);box-shadow
         </div>
         <div class="ai-summary-box" id="aiSummaryPanel" style="display:none"></div>
         <div class="found-note" id="foundNote"></div>
+      </div>
+    </section>
+
+    <!-- ANALITIK REMAN (integrasi dashboard/index.html) -->
+    <section class="view" id="view-reman">
+      <div class="page-head">
+        <div>
+          <h1>Analitik Reman</h1>
+          <p>Dashboard Reman JIM Sabah — klik carta untuk menapis &amp; lihat butiran</p>
+        </div>
+        <button class="btn btn-ghost" onclick="remanReset()">Set semula penapis</button>
+      </div>
+      <div class="card" style="margin-bottom:16px">
+        <div class="filter-grid" id="remanFilters"></div>
+        <div class="rm-chips" id="remanChips" style="margin-top:12px"></div>
+      </div>
+      <div class="rm-kpi" id="remanKpi"></div>
+      <div class="rm-grid" id="remanCharts"></div>
+      <div class="rm-card" style="margin-top:16px">
+        <h3>Peta Asal Warganegara → JIM Sabah</h3>
+        <div class="sub">Saiz bulatan = bilangan · warna = akta dominan · klik bulatan untuk tapis</div>
+        <div id="remanMap" style="height:360px;border-radius:12px;border:1px solid var(--line)"></div>
       </div>
     </section>
   </main>
@@ -930,6 +988,7 @@ function goView(v){
   document.querySelectorAll('.navitem').forEach(n=>n.classList.toggle('active', n.dataset.view===v));
   document.getElementById('sidebar').classList.remove('open');
   if(v==='laporan') updateFoundNote();
+  if(v==='reman'){ renderRemanView(); if(rmMap) setTimeout(()=>{ try{ rmMap.invalidateSize(); }catch(e){} }, 80); }
 }
 
 /* =======================================================================
@@ -940,6 +999,8 @@ function renderAll(){
   buildFilters();
   renderSenarai();
   updateFoundNote();
+  const rv=document.getElementById('view-reman');
+  if(rv && rv.classList.contains('active')) renderRemanView();
 }
 
 /* ------------------------- DASHBOARD ------------------------- */
@@ -1009,6 +1070,99 @@ function donutHTML(items){
     </div>
     <div class="legend">${list.map((d,i)=>`<div class="legend-item"><span class="dot" style="background:${CHART_COLORS[i%CHART_COLORS.length]}"></span>${esc(d.label)}<b>${d.value}</b><em>${(d.value/total*100).toFixed(1)}%</em></div>`).join('')}</div>
   </div>`;
+}
+
+/* =======================================================================
+   ANALITIK REMAN — integrasi dashboard/index.html ke dalam app
+   ======================================================================= */
+const remanF = { warganegara:'', depot:'', jantina:'', akta:'', keseriusan:'', pegawai:'', tindakan:'' };
+const RM_C = ['#0F2340','#21486f','#356180','#C5A880','#b09563','#8b93a1','#5d7690','#9fb0c4'];
+const RM_AKTA = ['Imigresen','Dadah Berbahaya 1952','Kanun Keseksaan','Lain-lain','ARJT','Pertubuhan'];
+const RM_SEV = ['Sangat Serius','Serius','Sederhana','Ringan'];
+const RM_COORD = { 'FILIPINA':[12.88,121.77,'#C5A880'],'INDONESIA':[-2.5,118,'#0F2340'],'CHINA':[35,105,'#a63a3a'],'VIETNAM':[14.06,108.28,'#2f7d5b'],'PAKISTAN':[30.37,69.35,'#b09563'],'INDIA':[20.59,78.96,'#356180'],'STATELESS':[3.14,101.69,'#8b93a1'],'TAIWAN':[23.7,120.96,'#6b7a90'],'THAILAND':[15.87,100.99,'#5d7690'] };
+
+function remanAkta(k){ const s=normText(k)||''; if(/DADAH|1952|ADB/.test(s))return 'Dadah Berbahaya 1952'; if(/ARJT/.test(s))return 'ARJT'; if(/PERTUBUHAN|PERSATUAN/.test(s))return 'Pertubuhan'; if(/KESEKSAAN|PENAL|KANUN|SENJATA/.test(s))return 'Kanun Keseksaan'; if(/IMIGRESEN|IMM|PASPORT|PASPOT|PLKS|^SEK/.test(s))return 'Imigresen'; return 'Lain-lain'; }
+function remanSev(k){ const s=normText(k)||''; if(/DADAH|ARJT|SENJATA/.test(s))return 'Sangat Serius'; if(/KESEKSAAN|PENAL|KANUN/.test(s))return 'Serius'; if(/IMIGRESEN|IMM|PASPORT|PLKS|^SEK/.test(s))return 'Sederhana'; return 'Ringan'; }
+function remanAge(u){ const n=parseInt(u,10); if(isNaN(n))return null; if(n<30)return '18-29'; if(n<45)return '30-44'; if(n<60)return '45-59'; return '60+'; }
+function remanJ(r){ const j=normText(r.jantina); return (j==='LELAKI'||j==='MALE')?'LELAKI':((j==='PEREMPUAN'||j==='FEMALE')?'PEREMPUAN':j); }
+function remanDur(r){ const a=toDate(r.tarikhMasuk), b=toDate(r.tarikhTamat); if(!a||!b)return null; return Math.round((b-a)/86400000); }
+function remanFiltered(){ return roleScopedData().filter(r=>{
+  if(remanF.warganegara && normText(r.warganegara)!==remanF.warganegara) return false;
+  if(remanF.depot && normText(r.depot)!==remanF.depot) return false;
+  if(remanF.jantina && remanJ(r)!==remanF.jantina) return false;
+  if(remanF.pegawai && normText(r.pegawai)!==remanF.pegawai) return false;
+  if(remanF.tindakan && normText(r.tindakan).indexOf(remanF.tindakan)===-1) return false;
+  if(remanF.akta && remanAkta(r.kesalahan)!==remanF.akta) return false;
+  if(remanF.keseriusan && remanSev(r.kesalahan)!==remanF.keseriusan) return false;
+  return true;
+}); }
+function remanSet(k,v){ remanF[k]=(remanF[k]===v)?'':v; renderRemanView(); }
+function remanReset(){ Object.keys(remanF).forEach(k=>remanF[k]=''); renderRemanView(); }
+function remanSel(k,v){ remanF[k]=v; renderRemanView(); }
+function rmA(s){ return String(s).replace(/'/g,'').replace(/"/g,'').replace(/[<>]/g,''); }
+function rmBars(items,color,key){ if(!items.length) return '<div class="empty-state" style="padding:14px">Tiada data.</div>'; const max=Math.max(1,...items.map(i=>i.value)); return items.map(i=>'<div class="bar-row" '+(key?'style="cursor:pointer" onclick="remanSet(\''+key+'\',\''+rmA(i.label)+'\')"':'')+'><div class="bar-label">'+esc(i.label)+'</div><div class="bar-track"><div class="bar-fill" style="width:'+(i.value/max*100).toFixed(1)+'%;background:'+color+'"></div></div><div class="bar-val">'+i.value+'</div></div>').join(''); }
+function rmDonut(items,key){ if(!items.length) return '<div class="empty-state" style="padding:14px">Tiada data.</div>'; let list=items.slice(); if(list.length>6){ const top=list.slice(0,5); top.push({label:'LAIN-LAIN',value:list.slice(5).reduce((a,b)=>a+b.value,0)}); list=top; } const total=list.reduce((a,b)=>a+b.value,0)||1; let acc=0; const segs=[]; list.forEach((d,i)=>{ const a=acc/total*360; acc+=d.value; const b=acc/total*360; segs.push(RM_C[i%RM_C.length]+' '+a.toFixed(2)+'deg '+b.toFixed(2)+'deg'); }); return '<div class="donut-wrap"><div class="donut" style="background:conic-gradient('+segs.join(',')+')"><div class="donut-hole"><span>'+total.toLocaleString('en-MY')+'</span><small>Jumlah</small></div></div><div class="legend">'+list.map((d,i)=>'<div class="legend-item" style="cursor:pointer" onclick="remanSet(\''+key+'\',\''+rmA(d.label)+'\')"><span class="dot" style="background:'+RM_C[i%RM_C.length]+'"></span>'+esc(d.label)+'<b>'+d.value+'</b><em>'+(d.value/total*100).toFixed(1)+'%</em></div>').join('')+'</div></div>'; }
+function rmLine(labels,series){ const W=560,H=210,pl=36,pr=12,pt=12,pb=24,n=labels.length||1; const max=Math.max(1,...series.flatMap(s=>s.data)); const x=i=>pl+(W-pl-pr)*(n>1?i/(n-1):0.5); const y=v=>H-pb-(H-pb-pt)*(v/max); let g=''; for(let t=0;t<=4;t++){ const yy=pt+(H-pt-pb)*t/4; g+='<line x1="'+pl+'" y1="'+yy+'" x2="'+(W-pr)+'" y2="'+yy+'" stroke="#EDF2F8"/>'; g+='<text x="'+(pl-5)+'" y="'+(yy+3)+'" text-anchor="end" font-size="9" fill="#8796aa">'+Math.round(max*(1-t/4))+'</text>'; } labels.forEach((l,i)=>{ g+='<text x="'+x(i)+'" y="'+(H-7)+'" text-anchor="middle" font-size="9" fill="#8796aa">'+esc(l)+'</text>'; }); series.forEach(s=>{ g+='<path d="'+s.data.map((v,i)=>(i?'L':'M')+x(i).toFixed(1)+','+y(v).toFixed(1)).join(' ')+'" fill="none" stroke="'+s.color+'" stroke-width="2"/>'; s.data.forEach((v,i)=>{ g+='<circle cx="'+x(i).toFixed(1)+'" cy="'+y(v).toFixed(1)+'" r="2.4" fill="'+s.color+'"/>'; }); }); return '<svg viewBox="0 0 '+W+' '+H+'" style="width:100%">'+g+'</svg>'; }
+function rmStacked(labels,a,b){ const W=560,H=210,pl=36,pr=12,pt=12,pb=24,n=labels.length||1; const max=Math.max(1,...labels.map((_,i)=>a[i]+b[i])); const bw=(W-pl-pr)/n*0.6; const x=i=>pl+(W-pl-pr)*(i+0.5)/n; let g=''; for(let t=0;t<=4;t++){ const yy=pt+(H-pt-pb)*t/4; g+='<line x1="'+pl+'" y1="'+yy+'" x2="'+(W-pr)+'" y2="'+yy+'" stroke="#EDF2F8"/>'; } labels.forEach((l,i)=>{ const hA=(H-pt-pb)*(a[i]/max), hB=(H-pt-pb)*(b[i]/max); const xL=x(i)-bw/2; g+='<rect x="'+xL.toFixed(1)+'" y="'+(H-pb-hA).toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+hA.toFixed(1)+'" fill="#0F2340"/>'; g+='<rect x="'+xL.toFixed(1)+'" y="'+(H-pb-hA-hB).toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+hB.toFixed(1)+'" fill="#C5A880"/>'; g+='<text x="'+x(i).toFixed(1)+'" y="'+(H-7)+'" text-anchor="middle" font-size="9" fill="#8796aa">'+esc(l)+'</text>'; }); return '<svg viewBox="0 0 '+W+' '+H+'" style="width:100%">'+g+'</svg>'; }
+function rmBubble(items){ if(!items.length) return '<div class="empty-state" style="padding:14px">Tiada data.</div>'; const W=560,H=220,pl=36,pr=12,pt=12,pb=26; const xs=items.map(i=>i.x), ys=items.map(i=>i.y); const xmax=Math.max(1,...xs), ymin=Math.min(...ys), ymax=Math.max(...ys); const span=(ymax-ymin)||1; const X=i=>pl+(W-pl-pr)*(i.x/xmax); const Y=i=>H-pb-(H-pt-pb)*((i.y-ymin)/span); let g='<line x1="'+pl+'" y1="'+(H-pb)+'" x2="'+(W-pr)+'" y2="'+(H-pb)+'" stroke="#DCE5F0"/><line x1="'+pl+'" y1="'+pt+'" x2="'+pl+'" y2="'+(H-pb)+'" stroke="#DCE5F0"/>'; items.forEach(it=>{ const r=Math.max(5,Math.sqrt(it.r)*1.7); g+='<circle cx="'+X(it).toFixed(1)+'" cy="'+Y(it).toFixed(1)+'" r="'+r.toFixed(1)+'" fill="'+it.color+'" opacity="0.78" style="cursor:pointer" onclick="remanSet(\'pegawai\',\''+rmA(it.name)+'\')"><title>'+esc(it.name)+' — beban '+it.x+', kualiti '+it.y+'</title></circle>'; }); return '<svg viewBox="0 0 '+W+' '+H+'" style="width:100%">'+g+'</svg>'; }
+function rmPyramid(groups){ const max=Math.max(1,...groups.flatMap(g=>[g.male,g.female])); const bar=(v,col)=>'<span class="rm-pyr-bar" style="width:'+(v/max*100).toFixed(1)+'%;background:'+col+'"></span>'; return groups.map(g=>'<div class="rm-pyr-row"><div class="rm-pyr-l">'+bar(g.male,'#0F2340')+'<b>'+g.male+'</b></div><div class="rm-pyr-g">'+esc(g.group)+'</div><div class="rm-pyr-r"><b>'+g.female+'</b>'+bar(g.female,'#C5A880')+'</div></div>').join(''); }
+function shadeCol(hex){ const n=parseInt(hex.slice(1),16); const r=(n>>16)&255,g=(n>>8)&255,b=n&255; const f=.78; return 'rgb('+Math.round(r*f+25)+','+Math.round(g*f+25)+','+Math.round(b*f+25)+')'; }
+function rmTreemap(tree){ if(!tree.length) return '<div class="empty-state" style="padding:14px">Tiada data.</div>'; return '<div class="rm-tree">'+tree.map(t=>'<div class="rm-tree-col" style="flex-grow:'+t.size+'"><div class="rm-tree-head" style="background:'+t.color+'" onclick="remanSet(\'warganegara\',\''+rmA(t.name)+'\')">'+esc(t.name)+' · '+t.size+'</div>'+t.children.map(c=>'<div class="rm-tree-cell" style="flex-grow:'+c.size+';background:'+shadeCol(t.color)+'">'+esc(c.name)+'<br><small>'+c.size+'</small></div>').join('')+'</div>').join('')+'</div>'; }
+function rmHeat(rows,cols,vals){ if(!rows.length) return '<div class="empty-state" style="padding:14px">Tiada data.</div>'; const max=Math.max(...vals.flat(),1); const col=v=>{ const p=v/max; return 'rgb('+Math.round(235+(15-235)*p)+','+Math.round(242+(35-242)*p)+','+Math.round(250+(64-250)*p)+')'; }; return '<table class="rm-heat"><thead><tr><th>Akta</th>'+cols.map(c=>'<th>'+esc(c)+'</th>').join('')+'</tr></thead><tbody>'+rows.map((r,ri)=>'<tr><td class="rm-heat-r">'+esc(r)+'</td>'+cols.map((c,ci)=>{ const v=vals[ri][ci]; return '<td><div class="rm-heat-c" style="background:'+col(v)+';color:'+(v>max*0.6?'#fff':'#0F2340')+'" onclick="remanSet(\'akta\',\''+rmA(r)+'\')">'+v+'%</div></td>'; }).join('')+'</tr>').join('')+'</tbody></table>'; }
+
+let rmMap=null;
+function rmRenderMap(items){ const el=document.getElementById('remanMap'); if(!el||typeof L==='undefined') return; if(!rmMap){ rmMap=L.map(el,{scrollWheelZoom:false}).setView([10,116],4); L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{attribution:'© OpenStreetMap © CARTO',subdomains:'abcd'}).addTo(rmMap); } if(rmMap._grp) rmMap.removeLayer(rmMap._grp); const grp=L.layerGroup().addTo(rmMap); rmMap._grp=grp; const jm=[5.98,116.07]; items.forEach(d=>{ L.polyline([d.ll,jm],{color:d.color,weight:1,opacity:.5,dashArray:'5 5'}).addTo(grp); L.circleMarker(d.ll,{radius:Math.max(5,Math.sqrt(d.count)/1.15),color:'#fff',weight:1,fillColor:d.color,fillOpacity:.85}).bindTooltip(d.name+': '+d.count.toLocaleString('en-MY')).on('click',()=>remanSet('warganegara',d.name)).addTo(grp); }); L.marker(jm,{icon:L.divIcon({className:'jim-star',html:'★',iconSize:[22,22]})}).bindTooltip('JIM SABAH (Kota Kinabalu)').addTo(grp); }
+
+function renderRemanView(){
+  const fl=document.getElementById('remanFilters'); if(!fl) return;
+  const rows=remanFiltered();
+  const mk=(key,label,list)=>'<label class="fld">'+label+'<select class="sel" onchange="remanSel(\''+key+'\',this.value)"><option value="">Semua</option>'+list.map(v=>'<option value="'+esc(v)+'" '+(remanF[key]===v?'selected':'')+'>'+esc(v)+'</option>').join('')+'</select></label>';
+  fl.innerHTML = mk('warganegara','Warganegara',uniqSorted('warganegara'))+mk('depot','Depot',uniqSorted('depot'))+mk('jantina','Jantina',['LELAKI','PEREMPUAN'])+mk('akta','Akta',RM_AKTA)+mk('keseriusan','Keseriusan',RM_SEV)+mk('pegawai','Pegawai',uniqSorted('pegawai'))+mk('tindakan','Tindakan',uniqSorted('tindakan'));
+  const active=Object.entries(remanF).filter(([,v])=>v);
+  document.getElementById('remanChips').innerHTML = active.length ? ('<span class="count-note">Penapis aktif:</span>'+active.map(([k,v])=>'<button class="rm-chip" onclick="remanSet(\''+k+'\',\''+rmA(v)+'\')">'+k+': '+esc(v)+' ✕</button>').join('')) : '<span class="rm-chip grey">Tiada penapis — menunjukkan semua data</span>';
+  const total=rows.length, usir=rows.filter(r=>normText(r.tindakan)==='USIR').length;
+  const usirRate= total? (usir/total*100).toFixed(1):'0.0';
+  const over14=rows.filter(r=>{const d=remanDur(r);return d!==null&&d>14;}).length;
+  const fil=rows.filter(r=>normText(r.warganegara)==='FILIPINA').length, filPct= total? Math.round(fil/total*100):0;
+  document.getElementById('remanKpi').innerHTML =
+    '<div class="rm-card"><div class="sub">JUMLAH REMAN</div><div class="kpi-val" style="color:var(--navy)">'+total.toLocaleString('en-MY')+'</div><div class="sub" style="margin-top:6px">Filipina '+filPct+'%</div></div>'+
+    '<div class="rm-card"><div class="sub">KADAR PERATUS USIR</div><div class="kpi-val" style="color:var(--navy)">'+usirRate+'%</div><div class="sub" style="margin-top:6px">'+usir.toLocaleString('en-MY')+' daripada '+total.toLocaleString('en-MY')+'</div></div>'+
+    '<div class="rm-card"><div class="sub">REMAN &gt; 14 HARI</div><div class="kpi-val" style="color:var(--navy)">'+over14.toLocaleString('en-MY')+'</div><div class="sub" style="margin-top:6px">tempoh reman melebihi 14 hari</div></div>'+
+    '<div class="rm-card"><div class="sub">WARGANEGARA</div><div class="kpi-val" style="color:var(--navy)">'+new Set(rows.map(r=>normText(r.warganegara)).filter(Boolean)).size+'</div><div class="sub" style="margin-top:6px">kewarganegaraan unik</div></div>';
+  const byWarga=countBy(rows,r=>normText(r.warganegara)||'(TIADA)');
+  const byDepot=countBy(rows,r=>normText(r.depot)||'(TIADA)');
+  const byJantina=countBy(rows,r=>remanJ(r)||'(TIADA)');
+  const byAkta=countBy(rows,r=>remanAkta(r.kesalahan));
+  const pyr=['18-29','30-44','45-59','60+'].map(g=>({group:g,male:rows.filter(r=>remanAge(r.umur)===g&&remanJ(r)==='LELAKI').length,female:rows.filter(r=>remanAge(r.umur)===g&&remanJ(r)==='PEREMPUAN').length}));
+  const bins=['18-20','21-23','24-26','27-29','30-32','33-35','36-38','39-41','42-44','45-47','48+'];
+  const ageDist=bins.map(b=>({label:b,value:rows.filter(r=>{ const u=parseInt(r.umur,10); if(isNaN(u))return false; if(b.charAt(b.length-1)==='+')return u>=parseInt(b); const p=b.split('-'); return u>=+p[0]&&u<=+p[1]; }).length}));
+  const tree=byWarga.filter(w=>w.label.charAt(0)!=='(').slice(0,4).map((w,i)=>({name:w.label,size:w.value,color:RM_C[i%RM_C.length],children:countBy(rows.filter(r=>normText(r.warganegara)===w.label),r=>normText(r.bangsa)||'(TIADA)').slice(0,6)}));
+  const mLab=['Jan','Feb','Mac','Apr','Mei','Jun','Jul','Ogos','Sep','Okt','Nov','Dis'];
+  const idxM=Array.from(new Set(rows.map(r=>{const d=toDate(r.tarikhMasuk);return d?d.getMonth():null;}).filter(x=>x!==null))).sort((a,b)=>a-b);
+  const labels=idxM.map(i=>mLab[i]);
+  const dep=dp=>idxM.map(mi=>rows.filter(r=>{const d=toDate(r.tarikhMasuk);return d&&d.getMonth()===mi&&normText(r.depot).indexOf(dp)!==-1;}).length);
+  const dikk=dep('KOTA KINABALU'), dip=dep('PAPAR');
+  const baharu=idxM.map(mi=>rows.filter(r=>{const d=toDate(r.tarikhMasuk);return d&&d.getMonth()===mi;}).length);
+  const lanjutan=idxM.map(mi=>rows.filter(r=>{const d=toDate(r.tarikhMasuk);const du=remanDur(r);return d&&d.getMonth()===mi&&du!==null&&du>14;}).length);
+  const hrows=RM_AKTA.filter(a=>byAkta.some(x=>x.label===a)); const hcols=['18-29','30-44','45-59','60+'];
+  const hvals=hrows.map(a=>{ const sub=rows.filter(r=>remanAkta(r.kesalahan)===a); const t=sub.length||1; return hcols.map(g=>Math.round(sub.filter(r=>remanAge(r.umur)===g).length/t*100)); });
+  const bubbles=countBy(rows,r=>normText(r.pegawai)||'').filter(p=>p.label).slice(0,8).map(p=>{ const sub=rows.filter(r=>normText(r.pegawai)===p.label); const miss=sub.filter(r=>!normText(r.kesalahan)||!parseInt(r.umur,10)||!r.tarikhTamat).length; const q=sub.length? Math.round((1-miss/sub.length)*100):0; let cat='Tiada kes',color='#2f7d5b'; if(q<80){cat='Kritikal';color='#a63a3a';} else if(q<90){cat='Tinggi';color='#b09563';} else if(q<96){cat='Sederhana';color='#C5A880';} return {name:p.label,x:p.value,y:q,r:p.value,cat,color}; });
+  const mapItems=byWarga.filter(w=>RM_COORD[w.label]).map(w=>{ const c=RM_COORD[w.label]; return {name:w.label,ll:[c[0],c[1]],color:c[2],count:w.value}; });
+  const box=(t,sub,body)=>'<div class="rm-card"><h3>'+t+'</h3>'+(sub?'<div class="sub">'+sub+'</div>':'')+body+'</div>';
+  document.getElementById('remanCharts').innerHTML =
+    box('Tahanan ikut Depot','Klik bar untuk tapis','<div class="bars">'+rmBars(byDepot,'#0F2340','depot')+'</div>')+
+    box('Tahanan ikut Warganegara','Klik legenda untuk tapis',rmDonut(byWarga,'warganegara'))+
+    box('Tahanan ikut Jantina','Klik bar untuk tapis','<div class="bars">'+rmBars(byJantina,'#C5A880','jantina')+'</div>')+
+    box('Piramid Jantina &amp; Umur','Lelaki navy · Perempuan emas',rmPyramid(pyr))+
+    box('Taburan Umur','Bilangan mengikut julat umur','<div class="bars">'+rmBars(ageDist,'#0F2340','')+'</div>')+
+    box('Pecahan Akta','Klik bar untuk tapis','<div class="bars">'+rmBars(byAkta,'#21486f','akta')+'</div>')+
+    box('Warganegara → Bangsa','Saiz = bilangan kes',rmTreemap(tree))+
+    box('Trend Reman Mengikut Depot','DIKK vs DIP',rmLine(labels,[{color:'#0F2340',data:dikk},{color:'#C5A880',data:dip}]))+
+    box('Reman Baharu &amp; Lanjutan','Bulanan (baharu navy, &gt;14 hari emas)',rmStacked(labels,baharu,lanjutan))+
+    box('Akta × Kumpulan Umur','% dalam setiap akta · klik sel',rmHeat(hrows,hcols,hvals))+
+    box('Beban Kes &amp; Kualiti Data','Setiap bulatan = pegawai',rmBubble(bubbles));
+  rmRenderMap(mapItems);
+  if(rmMap) setTimeout(()=>{ try{ rmMap.invalidateSize(); }catch(e){} }, 60);
 }
 
 /* ------------------------- SENARAI TAHANAN ------------------------- */
