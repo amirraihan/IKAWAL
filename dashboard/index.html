@@ -256,6 +256,11 @@ function KpiRow({ f, set }) {
         <div className="text-[11.5px] mt-2 font-semibold" style={{ color: "var(--green)" }}>
           ▲ +{k.usirDelta}% <span style={{ color: "var(--muted)", fontWeight: 500 }}>{k.usirDeltaLabel}</span>
         </div>
+        {f.tindakan !== "Semua" && (
+          <div className="text-[11px] mt-2 pt-2 border-t" style={{ borderColor: "var(--line)", color: "var(--muted)" }}>
+            Ditapis tindakan: <b style={{ color: NAVY }}>{f.tindakan}</b>
+          </div>
+        )}
       </Card>
       <Card className="p-4">
         <div className="flex items-center justify-between">
@@ -276,8 +281,13 @@ function KpiRow({ f, set }) {
             </div>
           ))}
         </div>
-        <div className="text-[10.5px] mt-2 pt-2 border-t" style={{ borderColor: "var(--line)", color: "var(--muted)" }}>
-          Sangat Serius: <b style={{ color: NAVY }}>19</b> · Serius: <b style={{ color: NAVY }}>446</b> · Sederhana: <b style={{ color: NAVY }}>668</b> · Ringan: <b style={{ color: NAVY }}>981</b>
+        <div className="flex flex-wrap gap-1.5 mt-2 pt-2 border-t" style={{ borderColor: "var(--line)" }}>
+          {k.severity.map((s) => (
+            <span key={s.name} className="text-[10px] font-semibold rounded-full px-2 py-[3px]"
+              style={f.keseriusan === s.name ? { background: NAVY, color: "#fff" } : { background: "#EEF2F7", color: "var(--muted)" }}>
+              {s.name}: <b style={{ color: f.keseriusan === s.name ? "#fff" : NAVY }}>{s.value}</b>
+            </span>
+          ))}
         </div>
       </Card>
     </div>
@@ -429,8 +439,10 @@ function TindakanSection({ f, set }) {
                 <Tooltip />
                 <Legend />
                 <Line type="monotone" dataKey="DIKK" stroke={NAVY} strokeWidth={2.5} dot={{ r: 3 }} activeDot={{ r: 6 }}
+                  strokeOpacity={f.depot === "Semua" || f.depot.indexOf("DIKK") === 0 ? 1 : 0.2}
                   onClick={() => { set("depot", "DIKK (Kota Kinabalu)"); _showDetail({ title: "Depot DIKK (Kota Kinabalu)", cols: ["Bulan", "Reman"], rows: t.labels.map((l, i) => [l, money(t.DIKK[i])]) }); }} />
                 <Line type="monotone" dataKey="DIP" stroke="#F2B705" strokeWidth={2.5} dot={{ r: 3 }} activeDot={{ r: 6 }}
+                  strokeOpacity={f.depot === "Semua" || f.depot.indexOf("DIP") === 0 ? 1 : 0.2}
                   onClick={() => { set("depot", "DIP (Papar)"); _showDetail({ title: "Depot DIP (Papar)", cols: ["Bulan", "Reman"], rows: t.labels.map((l, i) => [l, money(t.DIP[i])]) }); }} />
               </LineChart>
             </ResponsiveContainer>
@@ -477,7 +489,7 @@ function TindakanSection({ f, set }) {
               </thead>
               <tbody>
                 {heat.rows.map((row, ri) => (
-                  <tr key={row}>
+                  <tr key={row} style={{ display: (f.akta === "Semua" || f.akta === row) ? "" : "none" }}>
                     <td className="p-2 font-semibold" style={{ color: NAVY }}>{row}</td>
                     {heat.values[ri].map((v, ci) => (
                       <td key={ci} className="p-1">
@@ -596,6 +608,11 @@ function MapBox({ data, onPick }) {
 /*  DRILL-DOWN MODAL                                                          */
 /* ========================================================================== */
 function DetailModal({ detail, onClose }) {
+  useEffect(() => {
+    const h = (e) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  }, []);
   if (!detail) return null;
   const cols = detail.cols || ["Perkara", "Nilai"];
   return (
