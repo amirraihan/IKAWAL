@@ -1,0 +1,20 @@
+# Pastikan fail binari tidak ditukar line-ending (autocrlf) semasa checkout
+*.pdf   binary
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.ico   binary
+*.xlsx  binary
+*.xls   binary
+*.csv   binary
+*.db    binary
+*.pptx  binary
+*.zip   binary
+
+# Fail HTML/data projek — kekal sebagai teks
+*.html  text
+*.js    text
+*.py    text
+*.md    text
+*.json  text
