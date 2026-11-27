@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="ms">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Infografik UC-2 — Sokongan Keputusan Kes (SmartDepot)</title>
+<style>
+  :root{
+    --ink:#12203a; --muted:#5a6b86; --line:#d9e0ec; --bg:#eef3fa; --card:#fff;
+    --brand:#1b4d8f; --brand2:#2f7dc4; --done:#0d7a5f; --part:#b7791f; --defer:#b5322f;
+    --crit:#b5322f; --high:#d9822b; --med:#2f7dc4; --low:#7f8ca3;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:#dfe7f2;color:var(--ink);
+    font:14px/1.5 "Segoe UI",system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;}
+  .page{width:900px;margin:24px auto;background:var(--card);border-radius:18px;overflow:hidden;
+    box-shadow:0 18px 50px rgba(18,32,58,.22);}
+  .hero{background:linear-gradient(135deg,#17335c 0%,#1b4d8f 55%,#2f7dc4 100%);color:#fff;padding:30px 34px 26px;}
+  .hero .eyebrow{text-transform:uppercase;letter-spacing:.18em;font-size:11px;font-weight:700;opacity:.85;margin:0 0 8px;}
+  .hero h1{margin:0 0 8px;font-size:30px;line-height:1.14;letter-spacing:-.01em;}
+  .hero p{margin:0;max-width:70ch;opacity:.95;}
+  .hero .chips{margin-top:16px;}
+  .chip{display:inline-block;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.32);
+    border-radius:999px;padding:5px 13px;font-size:12px;font-weight:600;margin:4px 8px 0 0;}
+  .body{padding:26px 34px 30px;}
+  h2{font-size:17px;margin:26px 0 12px;color:#17335c;display:flex;align-items:center;gap:9px;}
+  h2 .n{display:inline-flex;width:24px;height:24px;border-radius:7px;background:var(--brand2);color:#fff;
+    font-size:13px;font-weight:800;align-items:center;justify-content:center;}
+  .lead{color:var(--muted);margin:0 0 6px;font-size:13.5px;}
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
+  .kpi{background:#f7f9fd;border:1px solid var(--line);border-radius:12px;padding:14px 15px;}
+  .kpi b{display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:6px;}
+  .kpi .v{font-size:27px;font-weight:800;line-height:1;}
+  .kpi .u{font-size:12px;color:var(--muted);margin-top:4px;}
+  .chain{display:grid;grid-template-columns:1fr auto 1fr auto 1fr;gap:10px;align-items:center;}
+  .step{background:#eef6f2;border:1.5px solid var(--done);border-radius:12px;padding:14px;text-align:center;}
+  .step .t{font-weight:800;color:var(--done);font-size:14px;}
+  .step .d{font-size:12px;color:#2c3e5e;margin-top:5px;}
+  .arrow{font-size:22px;color:var(--muted);font-weight:800;}
+  .bars{display:flex;flex-direction:column;gap:9px;margin-top:4px;}
+  .bar{display:grid;grid-template-columns:110px 1fr 70px;align-items:center;gap:12px;font-size:12.5px;}
+  .bar .lab{font-weight:700;}
+  .bar .track{background:#eef3fa;border-radius:8px;height:20px;overflow:hidden;}
+  .bar .fill{height:100%;border-radius:8px;}
+  .bar .cnt{text-align:right;color:var(--muted);font-variant-numeric:tabular-nums;}
+  .c-crit{background:var(--crit);} .c-high{background:var(--high);} .c-med{background:var(--med);}
+  .c-low{background:var(--low);} .c-bad{background:#c9ced8;}
+  table{width:100%;border-collapse:collapse;font-size:12.5px;}
+  th,td{border:1px solid var(--line);padding:7px 9px;text-align:left;vertical-align:top;}
+  th{background:#eef3fa;color:#243a5e;font-weight:700;}
+  td.pts{text-align:right;font-weight:800;white-space:nowrap;color:var(--brand);}
+  .two{display:grid;grid-template-columns:1.15fr 1fr;gap:18px;}
+  .card{background:#fbfcfe;border:1px solid var(--line);border-radius:12px;padding:15px 16px;}
+  .card h3{margin:0 0 10px;font-size:13.5px;color:#17335c;}
+  .rule{display:flex;align-items:center;gap:10px;margin:7px 0;}
+  .tag{border-radius:999px;color:#fff;font-weight:800;font-size:11.5px;padding:3px 11px;min-width:82px;text-align:center;}
+  .rule .sc{font-weight:800;min-width:52px;font-variant-numeric:tabular-nums;}
+  .rule .ac{font-size:12px;color:#2c3e5e;}
+  .case{background:#fff7ea;border:1px solid #f0d9a8;border-left:5px solid var(--high);border-radius:10px;padding:14px 16px;}
+  .case .id{font-weight:800;font-size:15px;}
+  .case .meta{color:#6b4e14;font-size:12.5px;margin:4px 0 8px;}
+  .case ul{margin:6px 0 0;padding-left:18px;} .case li{font-size:12.5px;margin:3px 0;}
+  .pipe{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-top:6px;}
+  .pstep{border-radius:10px;padding:10px 9px;text-align:center;font-size:11.5px;font-weight:700;line-height:1.3;}
+  .p1,.p2,.p3{background:#eef3fa;border:1.4px solid var(--brand2);color:#1b4d8f;}
+  .p4{background:#e7f6ef;border:1.4px solid var(--done);color:var(--done);}
+  .p5{background:#eef6f2;border:1.4px solid #7fae9c;color:#2c6b57;}
+  .p6{background:#fdf6ec;border:1.4px solid var(--part);color:#6b4e14;}
+  .facts{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;}
+  .fact{display:flex;gap:10px;align-items:flex-start;background:#f7f9fd;border:1px solid var(--line);border-radius:10px;padding:11px 13px;}
+  .fact .ic{font-size:16px;line-height:1.2;}
+  .fact b{display:block;font-size:12.5px;color:#17335c;}
+  .fact span{font-size:12px;color:var(--muted);}
+  .foot{display:flex;justify-content:space-between;gap:16px;color:var(--muted);font-size:11.5px;
+    border-top:1px solid var(--line);margin-top:26px;padding-top:14px;}
+  @media print{body{background:#fff;} .page{box-shadow:none;margin:0;width:100%;border-radius:0;}}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="hero">
+    <p class="eyebrow">SmartDepot · Kes Penggunaan 2</p>
+    <h1>Sokongan Keputusan Kes</h1>
+    <p>Kiraan detik reman automatik, skor risiko dengan sebab, dan <strong>satu tindakan disyorkan</strong>
+       bagi setiap kes banduan dagang — setiap kali rekod disimpan dan setiap pagi.</p>
+    <div class="chips">
+      <span class="chip">Cabang: IKAWAL-UC2</span>
+      <span class="chip">Enjin peraturan (bukan model)</span>
+      <span class="chip">Status: dilaksanakan &amp; diuji (34 ujian)</span>
+    </div>
+  </div>
+
+  <div class="body">
+
+    <h2><span class="n">1</span> Kadar risiko hari ini</h2>
+    <p class="lead">Sumber: <code>data/iringkawal_bpk2026.xlsx</code> · setakat 2026-11-27 · 2,115 kes diproses.</p>
+    <div class="kpis">
+      <div class="kpi"><b>Jumlah kes</b><span class="v">2,115</span><span class="u">Baris dalam daftar</span></div>
+      <div class="kpi"><b>Kes terbuka</b><span class="v" style="color:var(--brand)">4</span><span class="u">Perlu tindakan</span></div>
+      <div class="kpi"><b>Tertunggak</b><span class="v" style="color:var(--high)">4</span><span class="u">Tamat tarikh, belum muktamad</span></div>
+      <div class="kpi"><b>Rekod tidak sah</b><span class="v" style="color:var(--muted)">42</span><span class="u">Tarikh tidak boleh dibaca</span></div>
+    </div>
+
+    <h2><span class="n">2</span> Taburan keutamaan</h2>
+    <p class="lead">Majoriti kes sudah selesai (tindakan muktamad); hanya 30 kes kekal dalam jalur yang perlu perhatian.</p>
+    <div class="bars">
+      <div class="bar"><span class="lab" style="color:var(--crit)">Kritikal</span><div class="track"><div class="fill c-crit" style="width:0.1%"></div></div><span class="cnt">0</span></div>
+      <div class="bar"><span class="lab" style="color:var(--high)">Tinggi</span><div class="track"><div class="fill c-high" style="width:2%"></div></div><span class="cnt">4</span></div>
+      <div class="bar"><span class="lab" style="color:var(--med)">Sederhana</span><div class="track"><div class="fill c-med" style="width:12%"></div></div><span class="cnt">26</span></div>
+      <div class="bar"><span class="lab" style="color:#5f6b80">Rendah</span><div class="track"><div class="fill c-low" style="width:100%"></div></div><span class="cnt">2,043</span></div>
+      <div class="bar"><span class="lab" style="color:#8a93a3">Tidak sah</span><div class="track"><div class="fill c-bad" style="width:6%"></div></div><span class="cnt">42</span></div>
+    </div>
+
+    <h2><span class="n">3</span> Rantaian tiga langkah</h2>
+    <div class="chain">
+      <div class="step"><div class="t">E5 · Kiraan detik reman</div><div class="d">Hari berbaki ke tarikh tamat; amaran 3 hari / 1 hari / hari ini / tertunggak</div></div>
+      <div class="arrow">&rarr;</div>
+      <div class="step"><div class="t">E6 · Skor risiko</div><div class="d">Skor 0–100 daripada pemberat tetap, dengan sebab yang boleh disemak</div></div>
+      <div class="arrow">&rarr;</div>
+      <div class="step"><div class="t">E7 · Tindakan disyorkan</div><div class="d">Satu tindakan seterusnya; pegawai terima atau ubah (diack)</div></div>
+    </div>
+
+    <h2><span class="n">4</span> Label dan tindakan</h2>
+    <div class="two">
+      <div class="card">
+        <h3>Jalur keutamaan (skor)</h3>
+        <div class="rule"><span class="tag" style="background:var(--crit)">Kritikal</span><span class="sc">&ge;&nbsp;60</span><span class="ac">Bertindak hari ini: rakam tindakan atau mohon lanjutan; naikkan kepada ketua depot.</span></div>
+        <div class="rule"><span class="tag" style="background:var(--high)">Tinggi</span><span class="sc">35–59</span><span class="ac">Dalam 48 jam: siapkan draf lanjutan atau selesaikan ujian DNA / rayuan.</span></div>
+        <div class="rule"><span class="tag" style="background:var(--med)">Sederhana</span><span class="sc">15–34</span><span class="ac">Minggu ini: betulkan jurang pentadbiran; sahkan urusan usir.</span></div>
+        <div class="rule"><span class="tag" style="background:var(--low)">Rendah</span><span class="sc">&lt;&nbsp;15</span><span class="ac">Pantau.</span></div>
+      </div>
+      <div class="case">
+        <div class="id">Contoh: 26(703)BD</div>
+        <div class="meta">DIKK · tarikh tamat 2026-05-03 · hari berbaki −208 · <b>Tinggi · 55</b></div>
+        <div style="font-size:12.5px"><b>Sebab skor:</b></div>
+        <ul>
+          <li>Reman tamat/tertunggak &amp; tindakan belum muktamad (+40)</li>
+          <li>Tindakan belum muktamad (kosong/DNA/rayuan) (+15)</li>
+        </ul>
+        <div style="font-size:12.5px;margin-top:8px"><b>Tindakan disyorkan:</b> dalam 48 jam, siapkan draf lanjutan reman atau selesaikan langkah ujian DNA / rayuan.</div>
+      </div>
+    </div>
+
+    <h2><span class="n">5</span> Pemberat skor risiko (v1)</h2>
+    <table>
+      <thead><tr><th>Faktor risiko</th><th style="text-align:right">Mata</th></tr></thead>
+      <tbody>
+        <tr><td>Reman tamat hari ini / tertunggak, tindakan belum muktamad</td><td class="pts">+40</td></tr>
+        <tr><td>Reman tamat dalam 1–3 hari, tindakan belum muktamad</td><td class="pts">+25</td></tr>
+        <tr><td>Tindakan belum muktamad (ujian DNA, rayuan, kosong)</td><td class="pts">+15</td></tr>
+        <tr><td>Tempoh reman melebihi 14 hari (lanjutan)</td><td class="pts">+10</td></tr>
+        <tr><td>Kes ulangan (TANGKAP / TAHAN SEMULA)</td><td class="pts">+10</td></tr>
+        <tr><td>Umur 60 tahun ke atas</td><td class="pts">+10</td></tr>
+        <tr><td>Jurang pentadbiran: NO.REMAN atau FAIL kosong</td><td class="pts">+10</td></tr>
+        <tr><td>Depot melebihi 90% kapasiti (perlu jadual kapasiti)</td><td class="pts">+5</td></tr>
+      </tbody>
+    </table>
+    <p class="lead" style="margin-top:8px">Skor dihadkan pada 100. Jantina, bangsa dan warganegara <b>tidak</b> menjadi faktor.</p>
+
+    <h2><span class="n">6</span> Saluran hujung ke hujung</h2>
+    <div class="pipe">
+      <div class="pstep p1">1 · Tangkap<br/>borang · Excel</div>
+      <div class="pstep p2">2 · Sahkan<br/>bersih · peta kod</div>
+      <div class="pstep p3">3 · Log &amp; terbit<br/>hari berbaki · akta</div>
+      <div class="pstep p4">4 · Tentukan<br/>detik &rarr; skor &rarr; tindakan</div>
+      <div class="pstep p5">5 · Kawal<br/>pegawai lulus</div>
+      <div class="pstep p6">6 · Sedia<br/>papan · eksport</div>
+    </div>
+
+    <h2><span class="n">7</span> Fakta penting</h2>
+    <div class="facts">
+      <div class="fact"><span class="ic">&#128274;</span><span><b>Nama ditopeng</b>Contoh: <code>M******* R**** B** A* B******</code>. CATATAN tidak dihantar kepada model atau eksport.</span></div>
+      <div class="fact"><span class="ic">&#128196;</span><span><b>Eksport</b>Senarai semasa boleh dimuat turun sebagai Excel, PDF atau CSV.</span></div>
+      <div class="fact"><span class="ic">&#9881;&#65039;</span><span><b>Tanpa kebergantungan baharu</b>FastAPI pada permulaan PCAI; penulis xlsx/PDF daripada pustaka piawai.</span></div>
+      <div class="fact"><span class="ic">&#9878;&#65039;</span><span><b>Boleh dijelaskan</b>Skor peraturan, bukan model; pegawai memutuskan dan menandatangani.</span></div>
+    </div>
+
+    <div class="foot">
+      <span>Infografik UC-2 · SmartDepot Banduan Dagang · berdasarkan dokumen <code>TDD-IKAWAL-001</code></span>
+      <span>Data setakat 2026-11-27 · angka bersifat nasihat</span>
+    </div>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,115 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "pcai.name" . }}-auth
+  labels:
+    {{- include "pcai.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "pcai.selector" . | nindent 6 }}
+      app.kubernetes.io/component: auth
+  template:
+    metadata:
+      labels:
+        {{- include "pcai.labels" . | nindent 8 }}
+        app.kubernetes.io/component: auth
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      automountServiceAccountToken: false
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: oauth2-proxy
+          image: {{ printf "%s:%s" .Values.auth.image.repository .Values.auth.image.tag | quote }}
+          args:
+            - --http-address=0.0.0.0:4180
+            - --provider=keycloak-oidc
+            - {{ printf "--oidc-issuer-url=%s" .Values.auth.issuerURL | quote }}
+            - {{ printf "--client-id=%s" .Values.auth.clientID | quote }}
+            - {{ printf "--redirect-url=https://%s/oauth2/callback" .Values.ezua.virtualService.endpoint | quote }}
+            - {{ printf "--upstream=http://%s-app:8000/" (include "pcai.name" .) | quote }}
+            - --reverse-proxy=true
+            - --skip-provider-button=true
+            - --code-challenge-method=S256
+            - --scope=openid email profile
+            - --cookie-name=__Host-pcai_session
+            - --cookie-path=/
+            - --cookie-secure=true
+            - --cookie-httponly=true
+            - --cookie-samesite=lax
+            - --cookie-expire=8h
+            - --cookie-refresh=10m
+            - --pass-user-headers=true
+            - --pass-access-token=false
+            - --email-domain=*
+            - --proxy-websockets=false
+            - --upstream-timeout=200s
+            - --request-logging=false
+            - --auth-logging=false
+            {{- range .Values.auth.allowedGroups }}
+            - {{ printf "--allowed-group=%s" . | quote }}
+            {{- end }}
+            - --provider-ca-file=/etc/pcai-ca/ca.crt
+            - --use-system-trust-store=true
+          ports:
+            - name: http
+              containerPort: 4180
+          env:
+            - name: OAUTH2_PROXY_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.auth.existingSecret | quote }}
+                  key: client-secret
+            - name: OAUTH2_PROXY_COOKIE_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.auth.existingSecret | quote }}
+                  key: cookie-secret
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          resources:
+            {{- toYaml .Values.auth.resources | nindent 12 }}
+          readinessProbe:
+            httpGet: {path: /ready, port: http}
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: {path: /ping, port: http}
+            periodSeconds: 20
+          volumeMounts:
+            - name: oidc-ca
+              mountPath: /etc/pcai-ca
+              readOnly: true
+      volumes:
+        - name: oidc-ca
+          configMap:
+            name: {{ default (printf "%s-ca" (include "pcai.name" .)) .Values.auth.caConfigMap | quote }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "pcai.name" . }}-auth
+  labels:
+    {{- include "pcai.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 4180
+      targetPort: http
+  selector:
+    {{- include "pcai.selector" . | nindent 4 }}
+    app.kubernetes.io/component: auth

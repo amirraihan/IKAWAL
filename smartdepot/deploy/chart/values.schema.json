@@ -1,0 +1,305 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "replicaCount": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 10
+    },
+    "image": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "repository": {
+          "type": "string"
+        },
+        "tag": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "repository",
+        "tag"
+      ]
+    },
+    "imagePullSecrets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "resources": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "requests": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "cpu": {
+              "type": "string"
+            },
+            "memory": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "cpu",
+            "memory"
+          ]
+        },
+        "limits": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "cpu": {
+              "type": "string"
+            },
+            "memory": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "cpu",
+            "memory"
+          ]
+        }
+      },
+      "required": [
+        "requests",
+        "limits"
+      ]
+    },
+    "routing": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": [
+            "istio",
+            "ingress"
+          ]
+        }
+      },
+      "required": [
+        "mode"
+      ]
+    },
+    "ezua": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "virtualService": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "endpoint": {
+              "type": "string"
+            },
+            "istioGateway": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "endpoint",
+            "istioGateway"
+          ]
+        }
+      },
+      "required": [
+        "virtualService"
+      ]
+    },
+    "ingress": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "className": {
+          "type": "string"
+        },
+        "tlsSecretName": {
+          "type": "string"
+        },
+        "annotations": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "nginx.ingress.kubernetes.io/proxy-read-timeout": {
+              "type": "string"
+            },
+            "nginx.ingress.kubernetes.io/proxy-send-timeout": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "nginx.ingress.kubernetes.io/proxy-read-timeout",
+            "nginx.ingress.kubernetes.io/proxy-send-timeout"
+          ]
+        }
+      },
+      "required": [
+        "className",
+        "tlsSecretName",
+        "annotations"
+      ]
+    },
+    "litellm": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "baseURL": {
+          "type": "string"
+        },
+        "model": {
+          "type": "string",
+          "enum": [
+            "deepseek-ai/deepseek-v4.1-flash",
+            "qwen2.5:32b",
+            "gpt-oss:20b",
+            "llama3.2:3b"
+          ]
+        },
+        "existingSecret": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "baseURL",
+        "model",
+        "existingSecret"
+      ]
+    },
+    "auth": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "image": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "repository": {
+              "type": "string"
+            },
+            "tag": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "repository",
+            "tag"
+          ]
+        },
+        "issuerURL": {
+          "type": "string"
+        },
+        "clientID": {
+          "type": "string"
+        },
+        "existingSecret": {
+          "type": "string"
+        },
+        "allowedGroups": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "caConfigMap": {
+          "type": "string"
+        },
+        "resources": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "requests": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "cpu": {
+                  "type": "string"
+                },
+                "memory": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "cpu",
+                "memory"
+              ]
+            },
+            "limits": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "cpu": {
+                  "type": "string"
+                },
+                "memory": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "cpu",
+                "memory"
+              ]
+            }
+          },
+          "required": [
+            "requests",
+            "limits"
+          ]
+        }
+      },
+      "required": [
+        "image",
+        "issuerURL",
+        "clientID",
+        "existingSecret",
+        "allowedGroups",
+        "caConfigMap",
+        "resources"
+      ]
+    },
+    "networkPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "gatewayNamespace": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "enabled",
+        "gatewayNamespace"
+      ]
+    }
+  },
+  "required": [
+    "replicaCount",
+    "image",
+    "imagePullSecrets",
+    "resources",
+    "routing",
+    "ezua",
+    "ingress",
+    "litellm",
+    "auth",
+    "networkPolicy"
+  ],
+  "$schema": "https://json-schema.org/draft-07/schema#"
+}

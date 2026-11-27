@@ -1,0 +1,47 @@
+{{- if eq .Values.routing.mode "istio" }}
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: {{ include "pcai.name" . }}
+  labels:
+    {{- include "pcai.labels" . | nindent 4 }}
+spec:
+  hosts:
+    - {{ .Values.ezua.virtualService.endpoint | quote }}
+  gateways:
+    - {{ .Values.ezua.virtualService.istioGateway | quote }}
+  http:
+    - timeout: 210s
+      route:
+        - destination:
+            host: {{ printf "%s-auth.%s.svc.cluster.local" (include "pcai.name" .) .Release.Namespace | quote }}
+            port:
+              number: 4180
+{{- else if eq .Values.routing.mode "ingress" }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "pcai.name" . }}
+  labels:
+    {{- include "pcai.labels" . | nindent 4 }}
+  {{- with .Values.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  ingressClassName: {{ .Values.ingress.className | quote }}
+  tls:
+    - hosts: [{{ .Values.ezua.virtualService.endpoint | quote }}]
+      secretName: {{ .Values.ingress.tlsSecretName | quote }}
+  rules:
+    - host: {{ .Values.ezua.virtualService.endpoint | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "pcai.name" . }}-auth
+                port:
+                  number: 4180
+{{- end }}

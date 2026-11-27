@@ -1,0 +1,7 @@
+apiVersion: v2
+name: pcai-app
+description: Reusable LiteLLM app with Keycloak OIDC authentication for HPE PCAI
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords: [hpe, pcai, litellm, keycloak, workshop]

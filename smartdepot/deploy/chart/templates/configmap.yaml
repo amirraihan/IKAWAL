@@ -1,0 +1,13 @@
+{{- include "pcai.validate" . -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "pcai.name" . }}-app
+  labels:
+    {{- include "pcai.labels" . | nindent 4 }}
+data:
+  APP_BASE_URL: {{ .Values.litellm.baseURL | quote }}
+  APP_MODEL: {{ .Values.litellm.model | quote }}
+  APP_AUTH_MODE: "proxy"
+  APP_PUBLIC_URL: {{ printf "https://%s" .Values.ezua.virtualService.endpoint | quote }}
+  APP_CA_FILE: "/app/certs/pcai-ca.crt"
