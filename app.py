@@ -65,6 +65,8 @@ try:
         Table,
         TableStyle,
     )
+    from reportlab.graphics.shapes import Drawing, Rect
+    from reportlab.graphics.shapes import String as GString
 
     HAS_REPORTLAB = True
 except ImportError:  # pragma: no cover
@@ -118,7 +120,7 @@ REC_FIELDS = [
     "tarikh_masuk", "dokumen", "catatan",
 ]
 
-# Location of the bundled real dataset (imported automatically on first run).
+# Location of the bundled real dataset (imported manually: python app.py import).
 DATASET_PATH = os.environ.get(
     "IKAWAL_DATASET", os.path.join(BASE_DIR, "data", "iringkawal_bpk2026.xlsx")
 )
@@ -170,20 +172,6 @@ def init_db() -> None:
         if col not in existing:
             db.execute(f"ALTER TABLE records ADD COLUMN {col} TEXT")
     db.commit()
-    count = db.execute("SELECT COUNT(*) FROM records").fetchone()[0]
-    if count == 0:
-        loaded = load_dataset_into(db)
-        if not loaded:
-            for rec in sample_records():
-                _insert_record(db, rec)
-            action, detail = "Seed", "Data contoh dimuatkan"
-        else:
-            action, detail = "Seed", f"Set data diimport ({loaded} rekod)"
-        db.execute(
-            "INSERT INTO audit (ts, user, role, action, detail) VALUES (?,?,?,?,?)",
-            (now_ts(), "system", "Sistem", action, detail),
-        )
-        db.commit()
     db.close()
 
 
@@ -796,41 +784,142 @@ def period_label(period: str) -> str:
 
 
 # ============================================================================
-# Sample data
+# Laporan PDF (custom report)
 # ============================================================================
-def sample_records():
-    today = today_date()
+CUSTOM_STATUS_LABELS = {
+    "": "Semua",
+    "dalam": "Dalam Depot",
+    "bebas": "Sudah Bebas",
+    "urgent": "Reman Tamat < 3 Hari",
+}
 
-    def iso(off):
-        return add_days(today, off).isoformat()
 
-    raw = [
-        ("Ahmad bin Abdullah", "Lelaki", 34, "Melayu", "Malaysia", "Kes Curi", "RMN/2026/001", "BPK/KK/2026/0145", "Kota Kinabalu", "Insp. Ahmad", 2, "Sambung Reman", "Diterima", None, ""),
-        ("Siti Nurhaliza binti Omar", "Perempuan", 28, "Bajau", "Malaysia", "Kes Dadah", "RMN/2026/002", "BPK/PPR/2026/0089", "Papar", "Sgt. Siti", 1, "Tuduh di Mahkamah", "Dalam Semakan", None, ""),
-        ("Lim Wei Jie", "Lelaki", 41, "Cina", "Malaysia", "Kes Bunuh", "RMN/2026/003", "BPK/PPR/2026/0093", "Papar", "Kpl. John", -1, "Bebas", "Tiada", -2, "Bebas Dengan Jaminan"),
-        ("Rajesh a/l Kumar", "Lelaki", 37, "India", "Malaysia", "Kes Rogol", "RMN/2026/004", "BPK/KK/2026/0151", "Kota Kinabalu", "Insp. Ahmad", 5, "Sambung Reman", "Tiada", None, ""),
-        ("Budi Santoso", "Lelaki", 45, "Indonesia", "Indonesia", "Kes Pendatang Asing", "RMN/2026/005", "BPK/KK/2026/0158", "Kota Kinabalu", "Insp. Ahmad", 6, "Hantar Agensi Lain", "Dalam Semakan", None, ""),
-        ("Maria Santos", "Perempuan", 31, "Filipina", "Filipina", "Kes Dadah", "RMN/2026/006", "BPK/PPR/2026/0101", "Papar", "Sgt. Siti", 9, "Tuduh di Mahkamah", "Diterima", None, ""),
-        ("Tan Mei Ling", "Perempuan", 26, "Cina", "Malaysia", "Kes Curi", "RMN/2026/007", "BPK/KK/2026/0163", "Kota Kinabalu", "Insp. Ahmad", 1, "Sambung Reman", "Tiada", None, ""),
-        ("Mohd Faizal bin Hassan", "Lelaki", 33, "Melayu", "Malaysia", "Kes Samun", "RMN/2026/008", "BPK/PPR/2026/0110", "Papar", "Sgt. Siti", 14, "Tuduh di Mahkamah", "Tiada", None, ""),
-        ("Priya a/p Samy", "Perempuan", 29, "India", "Malaysia", "Kes Penipuan", "RMN/2026/009", "BPK/KK/2026/0171", "Kota Kinabalu", "Insp. Ahmad", 2, "Sambung Reman", "Dalam Semakan", None, ""),
-        ("Juan Dela Cruz", "Lelaki", 39, "Filipina", "Filipina", "Kes Pendatang Asing", "RMN/2026/010", "BPK/PPR/2026/0118", "Papar", "Kpl. John", 21, "Hantar Agensi Lain", "Tiada", None, ""),
-        ("Dewi Lestari", "Perempuan", 35, "Indonesia", "Indonesia", "Kes Dadah", "RMN/2026/011", "BPK/PPR/2026/0120", "Papar", "Sgt. Siti", 4, "Bebas", "Diterima", -6, "Bebas Tanpa Syarat"),
-        ("Nurul Aisyah binti Rahim", "Perempuan", 24, "Melayu", "Malaysia", "Kes Curi", "RMN/2026/012", "BPK/KK/2026/0180", "Kota Kinabalu", "Kpl. John", 7, "Tuduh di Mahkamah", "Tiada", None, ""),
+def report_options(records) -> dict:
+    """Distinct filter options for the custom report, drawn from the dataset."""
+
+    def distinct(key):
+        vals = {(r.get(key) or "").strip() for r in records}
+        vals.discard("")
+        return sorted(vals, key=lambda v: v.lower())
+
+    def pegawai():
+        vals = {(r.get("pegawai") or "").strip() for r in records}
+        vals.discard("")
+        return sorted(vals, key=lambda v: v.lower())
+
+    return {
+        "depot": ["Papar", "Kota Kinabalu"],
+        "warganegara": distinct("warganegara"),
+        "kesalahan": distinct("jenis_kesalahan"),
+        "jantina": ["Lelaki", "Perempuan"],
+        "bangsa": distinct("bangsa"),
+        "pegawai": pegawai(),
+        "months": BLN,
+    }
+
+
+def custom_filter_from_request() -> dict:
+    """Read the custom-report filter values from the current request."""
+    def g(name):
+        return (request.args.get(name) or "").strip()
+
+    frm = g("from")
+    to = g("to")
+    return {
+        "depot": g("depot"),
+        "warganegara": g("warganegara"),
+        "kesalahan": g("kesalahan"),
+        "jantina": g("jantina"),
+        "bangsa": g("bangsa"),
+        "pegawai": g("pegawai"),
+        "frm": frm if frm.isdigit() else "",
+        "to": to if to.isdigit() else "",
+        "status": g("status"),
+    }
+
+
+def custom_filtered(records, f: dict) -> list:
+    """Apply the custom-report filters to the whole record set."""
+    def keep(rec):
+        if f.get("depot") and rec.get("depot") != f["depot"]:
+            return False
+        if f.get("warganegara") and (rec.get("warganegara") or "").strip() != f["warganegara"]:
+            return False
+        if f.get("kesalahan") and (rec.get("jenis_kesalahan") or "").strip() != f["kesalahan"]:
+            return False
+        if f.get("jantina") and rec.get("jantina") != f["jantina"]:
+            return False
+        if f.get("bangsa") and (rec.get("bangsa") or "").strip() != f["bangsa"]:
+            return False
+        if f.get("pegawai") and (rec.get("pegawai") or "").strip() != f["pegawai"]:
+            return False
+        if f.get("status") == "dalam" and is_bebas(rec):
+            return False
+        if f.get("status") == "bebas" and not is_bebas(rec):
+            return False
+        if f.get("status") == "urgent" and not is_urgent(rec):
+            return False
+        if f.get("frm") or f.get("to"):
+            iso = rec.get("tarikh_masuk") or ""
+            if len(iso) < 7:
+                return False
+            try:
+                month = int(iso[5:7])
+            except ValueError:
+                return False
+            a = int(f["frm"]) if f.get("frm") else 1
+            b = int(f["to"]) if f.get("to") else 12
+            if a > b:
+                a, b = b, a
+            if month < a or month > b:
+                return False
+        return True
+
+    return [r for r in records if keep(r)]
+
+
+def describe_custom_filters(f: dict) -> str:
+    parts = [
+        "Depot: " + (f.get("depot") or "Semua"),
+        "Warganegara: " + (f.get("warganegara") or "Semua"),
+        "Jenis Kesalahan: " + (f.get("kesalahan") or "Semua"),
+        "Jantina: " + (f.get("jantina") or "Semua"),
+        "Bangsa: " + (f.get("bangsa") or "Semua"),
+        "Pegawai: " + (f.get("pegawai") or "Semua"),
     ]
-    out = []
-    for r in raw:
-        out.append({
-            "id": "r" + uuid.uuid4().hex[:10],
-            "nama": r[0], "jantina": r[1], "umur": r[2], "bangsa": r[3],
-            "warganegara": r[4], "jenis_kesalahan": r[5], "nombor_reman": r[6],
-            "nombor_fail": r[7], "depot": r[8], "pegawai": r[9],
-            "tarikh_tamat_reman": iso(r[10]), "tindakan": r[11],
-            "surat_rayuan": r[12],
-            "tarikh_dibebaskan": iso(r[13]) if r[13] is not None else "",
-            "cara_bebas": r[14] or "",
-        })
-    return out
+    if f.get("frm") or f.get("to"):
+        a = BLN[int(f["frm"]) - 1] if f.get("frm") else BLN[0]
+        b = BLN[int(f["to"]) - 1] if f.get("to") else BLN[11]
+        parts.append("Tarikh Masuk: " + a + " \u2013 " + b)
+    else:
+        parts.append("Tarikh Masuk: Semua")
+    parts.append("Status: " + CUSTOM_STATUS_LABELS.get(f.get("status") or "", "Semua"))
+    return "  \u00b7  ".join(parts)
+
+
+def bar_drawing(pairs, width, height, bar_color="#1D6FE0"):
+    """A compact horizontal bar chart as a reportlab flowable."""
+    d = Drawing(width, height)
+    pairs = list(pairs)
+    if not pairs:
+        d.add(GString(4, height / 2, "Tiada data", fontSize=8,
+                      fillColor=colors.HexColor("#5C6E8A")))
+        return d
+    maxv = max(v for _, v in pairs) or 1
+    label_w = width * 0.42
+    bar_area = width - label_w - 34
+    row_h = height / len(pairs)
+    for i, (label, val) in enumerate(pairs):
+        y = height - (i + 1) * row_h + row_h * 0.22
+        lab = label if len(label) <= 32 else label[:31] + "\u2026"
+        d.add(GString(2, y + row_h * 0.18, lab, fontSize=6.8,
+                      fillColor=colors.HexColor("#33486A")))
+        bw = max(bar_area * (val / maxv), 0.6)
+        d.add(Rect(label_w, y, bw, row_h * 0.6,
+                   fillColor=colors.HexColor(bar_color), strokeColor=None))
+        d.add(GString(label_w + bw + 3, y + row_h * 0.18, str(val), fontSize=6.8,
+                      fillColor=colors.HexColor("#5C6E8A")))
+    return d
 
 
 # ============================================================================
@@ -939,6 +1028,15 @@ def api_data():
     })
 
 
+@app.route("/api/options")
+@login_required
+def api_options():
+    """Distinct filter options for the Laporan PDF custom report."""
+    db = get_db()
+    rows = [row_to_dict(r) for r in db.execute("SELECT * FROM records").fetchall()]
+    return jsonify(report_options(rows))
+
+
 @app.route("/api/records", methods=["POST"])
 @login_required
 def api_create_record():
@@ -1009,20 +1107,6 @@ def api_clear_records():
     db.commit()
     audit("Padam semua data", "")
     return jsonify({"ok": True})
-
-
-@app.route("/api/sample", methods=["POST"])
-@login_required
-def api_sample():
-    if not can("upload"):
-        return jsonify({"error": "Peranan anda tiada akses muat naik."}), 403
-    db = get_db()
-    db.execute("DELETE FROM records")
-    for rec in sample_records():
-        _insert_record(db, rec)
-    db.commit()
-    audit("Guna data contoh", "12 rekod")
-    return jsonify({"ok": True, "count": 12})
 
 
 def normalize_payload(data: dict) -> dict:
@@ -1115,57 +1199,6 @@ def api_import():
 
 
 # ----------------------------------------------------------------------------
-# Export: Excel
-# ----------------------------------------------------------------------------
-@app.route("/api/export/xlsx")
-@login_required
-def api_export_xlsx():
-    if not can("export"):
-        return jsonify({"error": "Peranan anda tiada akses eksport."}), 403
-    if not HAS_OPENPYXL:
-        return jsonify({"error": "Pustaka openpyxl tidak dipasang."}), 500
-    db = get_db()
-    records = [row_to_dict(r) for r in db.execute("SELECT * FROM records ORDER BY created_at").fetchall()]
-
-    headers = [
-        "Nama", "Jantina", "Umur", "Bangsa", "Warganegara", "Jenis Kesalahan",
-        "Nombor Reman", "Nombor Fail", "Depot", "Pegawai Handle",
-        "Tarikh Masuk", "Tarikh Tamat Reman", "Tindakan Selepas Reman", "Status Semasa",
-        "Tarikh Dibebaskan", "Cara Bebas", "Surat Rayuan", "Dokumen", "Catatan",
-    ]
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = "Tahanan Bersih"
-    ws.append(headers)
-    head_fill = PatternFill("solid", fgColor="12305F")
-    for cell in ws[1]:
-        cell.font = Font(bold=True, color="FFFFFF")
-        cell.fill = head_fill
-        cell.alignment = Alignment(horizontal="center", vertical="center")
-    for r in records:
-        ws.append([
-            r["nama"], r["jantina"], r["umur"], r["bangsa"], r["warganegara"],
-            r["jenis_kesalahan"], r["nombor_reman"], r["nombor_fail"], r["depot"],
-            r["pegawai"], r["tarikh_masuk"], r["tarikh_tamat_reman"], r["tindakan"],
-            status_semasa(r), r["tarikh_dibebaskan"], r["cara_bebas"], r["surat_rayuan"],
-            r["dokumen"], r["catatan"],
-        ])
-    widths = [26, 10, 6, 12, 13, 20, 16, 20, 16, 16, 12, 18, 22, 16, 18, 24, 16, 16, 30]
-    for i, w in enumerate(widths, start=1):
-        ws.column_dimensions[openpyxl.utils.get_column_letter(i)].width = w
-
-    buf = io.BytesIO()
-    wb.save(buf)
-    buf.seek(0)
-    audit("Eksport Excel", f"{len(records)} rekod")
-    filename = f"Iringkawal_Bersih_{dt.datetime.now():%Y%m%d_%H%M}.xlsx"
-    return send_file(
-        buf, as_attachment=True, download_name=filename,
-        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    )
-
-
-# ----------------------------------------------------------------------------
 # Export: PDF
 # ----------------------------------------------------------------------------
 @app.route("/api/export/pdf")
@@ -1185,6 +1218,27 @@ def api_export_pdf():
     pdf_bytes = build_pdf(subset, period_label(period))
     audit("Jana Laporan PDF", f"{period_label(period)} \u00b7 {len(subset)} rekod")
     filename = f"Iringkawal_Laporan_{dt.datetime.now():%Y%m%d_%H%M}.pdf"
+    return send_file(io.BytesIO(pdf_bytes), as_attachment=True,
+                     download_name=filename, mimetype="application/pdf")
+
+
+@app.route("/api/export/pdf/custom")
+@login_required
+def api_export_pdf_custom():
+    """PDF report following the user's own filters (all roles may use it)."""
+    if not HAS_REPORTLAB:
+        return jsonify({"error": "Pustaka reportlab tidak dipasang."}), 500
+    f = custom_filter_from_request()
+    db = get_db()
+    records = [row_to_dict(r) for r in
+               db.execute("SELECT * FROM records ORDER BY created_at").fetchall()]
+    subset = custom_filtered(records, f)
+    if not subset:
+        return jsonify({"error": "Tiada rekod untuk penapis dipilih."}), 400
+    label = describe_custom_filters(f)
+    pdf_bytes = build_custom_pdf(subset, label)
+    audit("Jana Laporan PDF (Pilihan)", f"{label} \u00b7 {len(subset)} rekod")
+    filename = f"Iringkawal_Pilihan_{dt.datetime.now():%Y%m%d_%H%M}.pdf"
     return send_file(io.BytesIO(pdf_bytes), as_attachment=True,
                      download_name=filename, mimetype="application/pdf")
 
@@ -1340,6 +1394,171 @@ def build_pdf(records: list[dict], label: str) -> bytes:
     return buf.getvalue()
 
 
+def build_custom_pdf(subset: list[dict], filters_label: str) -> bytes:
+    """PDF for the Laporan PDF custom report - filtered subset only."""
+    buf = io.BytesIO()
+    page = landscape(A4)
+    W = page[0]
+    doc = SimpleDocTemplate(
+        buf, pagesize=page, leftMargin=34, rightMargin=34,
+        topMargin=74, bottomMargin=30,
+        title="Iringkawal Analyzer - Laporan Ikut Pilihan",
+    )
+    styles = getSampleStyleSheet()
+    story: list = []
+    head_style = ParagraphStyle(
+        "h", parent=styles["Normal"], fontName="Helvetica-Bold", fontSize=10,
+        textColor=colors.HexColor("#0A1E3F"),
+    )
+    small_style = ParagraphStyle(
+        "s", parent=styles["Normal"], fontName="Helvetica", fontSize=8,
+        textColor=colors.HexColor("#33486A"), leading=12,
+    )
+
+    def draw_header(canv, _doc):
+        canv.saveState()
+        canv.setFillColorRGB(10 / 255, 30 / 255, 63 / 255)
+        canv.rect(0, page[1] - 56, W, 56, stroke=0, fill=1)
+        canv.setFillColorRGB(20 / 255, 200 / 255, 182 / 255)
+        canv.rect(0, page[1] - 59, W, 3, stroke=0, fill=1)
+        canv.setFillColorRGB(1, 1, 1)
+        canv.setFont("Helvetica-Bold", 15)
+        canv.drawString(34, page[1] - 28,
+                        "IRINGKAWAL ANALYZER \u2014 LAPORAN PDF")
+        canv.setFont("Helvetica", 8.5)
+        canv.setFillColorRGB(195 / 255, 212 / 255, 235 / 255)
+        canv.drawString(34, page[1] - 45,
+                        "Bahagian Pengurusan Kesalahan (BPK) \u00b7 2026")
+        canv.drawRightString(
+            W - 34, page[1] - 45,
+            "Dijana: " + dt.datetime.now().strftime("%d %B %Y %H:%M"),
+        )
+        canv.restoreState()
+
+    kpis = [
+        ("Jumlah Dijumpai", len(subset)),
+        ("Lelaki", sum(1 for r in subset if r["jantina"] == "Lelaki")),
+        ("Perempuan", sum(1 for r in subset if r["jantina"] == "Perempuan")),
+        ("Depot Papar", sum(1 for r in subset if r["depot"] == "Papar")),
+        ("Depot Kota Kinabalu", sum(1 for r in subset if r["depot"] == "Kota Kinabalu")),
+        ("Reman < 3 Hari", sum(1 for r in subset if is_urgent(r))),
+        ("Sudah Bebas", sum(1 for r in subset if is_bebas(r))),
+    ]
+    gap = 8
+    bw = (W - 68 - gap * 6) / 7
+    kpi_row = [TableCell(str(v), k.upper()) for k, v in kpis]
+    kpi_tbl = Table([kpi_row], colWidths=[bw] * 7)
+    kpi_tbl.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#F5F8FC")),
+        ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#CED8E6")),
+        ("INNERGRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#CED8E6")),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("TOPPADDING", (0, 0), (-1, -1), 6),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+    ]))
+    story.append(kpi_tbl)
+    story.append(Spacer(1, 10))
+    story.append(Paragraph("<b>Penapis dipilih:</b> " + filters_label, small_style))
+    story.append(Spacer(1, 14))
+
+    def summary_pairs(key, limit=None):
+        m = count_by(subset, key)
+        pairs = sorted(m.items(), key=lambda kv: (-kv[1], kv[0]))
+        return pairs[:limit] if limit else pairs
+
+    def summary_table(pairs, header, col_widths, total):
+        data = [header]
+        for name, n in pairs:
+            pct = round(n / total * 100, 1) if total else 0
+            data.append([name, str(n), f"{pct}%"])
+        tbl = Table(data, colWidths=col_widths)
+        tbl.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#12305F")),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#CED8E6")),
+            ("FONTSIZE", (0, 0), (-1, -1), 8),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1),
+             [colors.white, colors.HexColor("#FAFCFF")]),
+        ]))
+        return tbl
+
+    warga_pairs = summary_pairs("warganegara")
+    kes_pairs = summary_pairs("jenis_kesalahan", 15)
+    total = len(subset)
+
+    story.append(Paragraph("RINGKASAN MENGIKUT WARGANEGARA", head_style))
+    story.append(Spacer(1, 6))
+    story.append(summary_table(
+        warga_pairs, ["Warganegara", "Bilangan", "Peratus"],
+        [W - 68 - 150, 75, 75], total))
+    story.append(Spacer(1, 14))
+
+    story.append(Paragraph("RINGKASAN MENGIKUT JENIS KESALAHAN (15 teratas)", head_style))
+    story.append(Spacer(1, 6))
+    story.append(summary_table(
+        kes_pairs, ["Jenis Kesalahan", "Bilangan", "Peratus"],
+        [W - 68 - 150, 75, 75], total))
+    story.append(Spacer(1, 16))
+
+    story.append(Paragraph("CARTA MENGIKUT WARGANEGARA", head_style))
+    story.append(Spacer(1, 4))
+    story.append(bar_drawing(warga_pairs[:12], W - 68,
+                             max(36, 11 * min(len(warga_pairs), 12) + 8), "#1D6FE0"))
+    story.append(Spacer(1, 14))
+
+    story.append(Paragraph("CARTA MENGIKUT JENIS KESALAHAN (10 teratas)", head_style))
+    story.append(Spacer(1, 4))
+    story.append(bar_drawing(kes_pairs[:10], W - 68,
+                             max(36, 11 * min(len(kes_pairs), 10) + 8), "#0FB5A6"))
+    story.append(Spacer(1, 16))
+
+    story.append(Paragraph(f"SENARAI TAHANAN \u2014 {len(subset)} REKOD", head_style))
+    story.append(Spacer(1, 6))
+    head = ["Nama", "Jantina", "Umur", "Bangsa", "Warganegara", "Jenis Kesalahan",
+            "No. Reman", "No. Fail", "Depot", "Pegawai", "Tamat Reman", "Tindakan",
+            "Status", "Rayuan"]
+    body = [head]
+    urgent_rows = set()
+    for i, r in enumerate(subset, start=1):
+        body.append([
+            r["nama"], r["jantina"], "-" if r["umur"] == "" else str(r["umur"]),
+            r["bangsa"], r["warganegara"], r["jenis_kesalahan"], r["nombor_reman"],
+            r["nombor_fail"], r["depot"], r["pegawai"],
+            r["tarikh_tamat_reman"] or "-", r["tindakan"], status_semasa(r),
+            r["surat_rayuan"],
+        ])
+        if is_urgent(r):
+            urgent_rows.add(i)
+    weights = [1.7, 0.7, 0.45, 0.85, 0.95, 1.3, 1.0, 1.2, 0.9, 1.0, 0.95, 1.1, 0.95, 0.85]
+    total_w = sum(weights)
+    avail = W - 68
+    col_w = [avail * x / total_w for x in weights]
+    rec_tbl = Table(body, colWidths=col_w, repeatRows=1)
+    style = [
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0A1E3F")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 6),
+        ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#DCE6F2")),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1),
+         [colors.white, colors.HexColor("#FAFCFF")]),
+        ("TOPPADDING", (0, 0), (-1, -1), 3),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+    ]
+    for i in urgent_rows:
+        style.append(("TEXTCOLOR", (0, i), (-1, i), colors.HexColor("#C03335")))
+        style.append(("FONTNAME", (0, i), (-1, i), "Helvetica-Bold"))
+    rec_tbl.setStyle(TableStyle(style))
+    story.append(rec_tbl)
+
+    doc.build(story, onFirstPage=draw_header, onLaterPages=draw_header,
+              canvasmaker=_NumberedCanvas)
+    return buf.getvalue()
+
+
 class TableCell:
     """Tiny helper that renders a KPI box as a nested table (supports colour)."""
 
@@ -1398,19 +1617,13 @@ def api_audit_add():
 # CLI entry point
 # ----------------------------------------------------------------------------
 def reset_and_import() -> int:
-    """Wipe records and re-import the bundled dataset (or sample fallback)."""
+    """Wipe records and re-import the bundled dataset (manual: python app.py import)."""
     init_db()
     db = sqlite3.connect(DB_PATH)
     db.execute("DELETE FROM records")
     db.commit()
     n = load_dataset_into(db)
-    if not n:
-        for rec in sample_records():
-            _insert_record(db, rec)
-        n = len(sample_records())
-        note = "Data contoh"
-    else:
-        note = "Set data"
+    note = "Set data" if n else "Tiada fail dataset"
     db.execute(
         "INSERT INTO audit (ts, user, role, action, detail) VALUES (?,?,?,?,?)",
         (now_ts(), "system", "Sistem", "Reimport", f"{note} ({n} rekod)"),

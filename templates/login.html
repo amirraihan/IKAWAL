@@ -5,88 +5,111 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Log Masuk — Iringkawal Analyzer</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 <style>
-  :root{ --navy:#0A1E3F; --blue:#1D6FE0; --blue2:#2E86FF; --teal:#0FB5A6; --teal2:#14C8B6; }
+  :root{
+    --navy:#0B1F3A; --ink:#0F172A; --slate:#334155; --muted:#64748B;
+    --line:#E6EAF0; --line2:#D7DEE8; --bg:#F4F6FA;
+    --blue:#2563EB; --teal:#0D9488;
+    --shadow-lg:0 30px 60px -30px rgba(15,23,42,.45);
+  }
   *{box-sizing:border-box;}
   html,body{margin:0;height:100%;}
-  body{
-    font-family:"Plus Jakarta Sans",-apple-system,"Segoe UI",Roboto,Arial,sans-serif;color:#fff;
-    background:linear-gradient(125deg,#081A38 0%,#12305F 48%,#0E6E70 100%);
-    display:flex;align-items:center;justify-content:center;padding:24px;
+  body{font-family:'Inter',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;color:var(--ink);
+    background:linear-gradient(130deg,#0A1B33 0%,#102C52 52%,#0B3B47 100%);}
+  .auth{min-height:100%;display:grid;grid-template-columns:1.05fr .95fr;}
+  /* left brand panel */
+  .auth-aside{position:relative;color:#fff;padding:56px 60px;display:flex;flex-direction:column;justify-content:center;overflow:hidden;}
+  .auth-aside::after{content:"";position:absolute;inset:0;pointer-events:none;
+    background:radial-gradient(620px 420px at 80% 15%, rgba(20,184,166,.28), transparent 62%),
+               radial-gradient(520px 360px at 0% 100%, rgba(37,99,235,.30), transparent 60%);}
+  .auth-aside > *{position:relative;z-index:2;}
+  .crest{width:64px;height:64px;border-radius:18px;display:grid;place-items:center;font-weight:800;font-size:22px;
+    background:linear-gradient(135deg,#3B82F6,#0D9488);box-shadow:0 20px 40px -18px rgba(37,99,235,.95);margin-bottom:26px;color:#fff;}
+  .auth-aside h1{margin:0 0 8px;font-size:2rem;font-weight:800;letter-spacing:-.6px;}
+  .auth-aside .tag{color:#7FE3D6;font-size:.74rem;font-weight:800;letter-spacing:2.4px;text-transform:uppercase;margin:0 0 30px;}
+  .auth-aside ul{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:14px;max-width:360px;}
+  .auth-aside li{display:flex;align-items:center;gap:12px;font-size:.92rem;color:#CBD9EC;font-weight:500;}
+  .auth-aside li b{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;flex:none;
+    background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.14);font-size:.9rem;}
+  .auth-aside .foot{margin-top:40px;font-size:.72rem;color:#8FB0D6;letter-spacing:.4px;}
+  /* right form panel */
+  .auth-main{background:var(--bg);display:flex;align-items:center;justify-content:center;padding:40px 24px;}
+  .auth-card{width:100%;max-width:440px;background:#fff;border:1px solid var(--line);border-radius:20px;
+    box-shadow:var(--shadow-lg);padding:34px 32px;}
+  .auth-card h2{margin:0 0 4px;font-size:1.35rem;font-weight:800;color:var(--navy);letter-spacing:-.4px;}
+  .auth-card .sub{margin:0 0 22px;font-size:.84rem;color:var(--muted);}
+  .roles{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px;}
+  .role{cursor:pointer;border:1px solid var(--line2);background:#fff;border-radius:14px;padding:14px 8px;color:var(--slate);
+    font-family:inherit;transition:.16s;text-align:center;}
+  .role:hover{background:#F6F9FE;border-color:#C3CCD9;transform:translateY(-2px);}
+  .role.sel{background:var(--navy);border-color:var(--navy);color:#fff;box-shadow:0 14px 26px -16px rgba(11,31,58,.95);}
+  .role .ri{font-size:1.45rem;display:block;margin-bottom:6px;}
+  .role .rn{font-weight:800;font-size:.78rem;display:block;}
+  .field{margin-bottom:16px;}
+  .field label{display:block;font-size:.7rem;font-weight:800;letter-spacing:.7px;text-transform:uppercase;color:var(--slate);margin-bottom:7px;}
+  .field input{width:100%;border:1px solid var(--line2);background:#fff;color:var(--ink);border-radius:11px;
+    padding:12px 14px;font-family:inherit;font-size:.9rem;outline:none;transition:.15s;}
+  .field input:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(37,99,235,.14);}
+  .btn{width:100%;border:none;border-radius:12px;padding:14px;font-size:.95rem;font-weight:800;cursor:pointer;
+    background:var(--navy);color:#fff;font-family:inherit;box-shadow:0 18px 34px -18px rgba(11,31,58,1);transition:.18s;}
+  .btn:hover{background:#12305A;transform:translateY(-2px);}
+  .err{color:#B91C1C;font-size:.8rem;font-weight:700;margin-top:12px;min-height:18px;}
+  .hint{margin-top:18px;background:#F6F9FE;border:1px dashed var(--line2);border-radius:12px;padding:12px 14px;
+    font-size:.74rem;color:var(--muted);line-height:1.9;}
+  .hint b{color:var(--slate);}
+  .hint code{background:#EAF1FE;padding:2px 7px;border-radius:5px;color:#1D4ED8;font-size:.74rem;}
+  @media (max-width:900px){
+    .auth{grid-template-columns:1fr;}
+    .auth-aside{display:none;}
+    .auth-main{padding:24px 16px;}
   }
-  body::after{content:"";position:fixed;inset:0;pointer-events:none;
-    background:radial-gradient(700px 380px at 80% 10%, rgba(20,200,182,.30), transparent 66%),
-               radial-gradient(560px 360px at 8% 100%, rgba(46,134,255,.34), transparent 62%);}
-  .card{
-    position:relative;z-index:2;width:100%;max-width:660px;text-align:center;
-    background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.16);border-radius:24px;
-    padding:36px 32px;backdrop-filter:blur(7px);box-shadow:0 40px 80px -40px rgba(0,0,0,.85);
-  }
-  .crest{width:64px;height:64px;margin:0 auto 14px;font-size:22px;border-radius:18px;font-weight:800;color:#04241F;
-    display:grid;place-items:center;background:linear-gradient(135deg,var(--blue2),var(--teal2));box-shadow:0 14px 30px -12px rgba(46,134,255,.95);}
-  h1{margin:0 0 6px;font-size:1.5rem;font-weight:800;letter-spacing:-.6px;}
-  .sub{color:#9FE9E0;font-size:.74rem;font-weight:800;letter-spacing:2px;text-transform:uppercase;margin-bottom:24px;}
-  .roles{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px;}
-  .role{cursor:pointer;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.05);border-radius:16px;
-    padding:16px 12px;color:#fff;font-family:inherit;transition:.18s;}
-  .role:hover{background:rgba(255,255,255,.12);transform:translateY(-3px);}
-  .role.sel{background:linear-gradient(135deg,var(--blue),var(--teal));border-color:transparent;box-shadow:0 16px 30px -16px rgba(20,200,182,.9);}
-  .role .ri{font-size:1.6rem;display:block;margin-bottom:8px;}
-  .role .rn{font-weight:800;font-size:.9rem;display:block;}
-  .role .rd{font-size:.68rem;opacity:.9;margin-top:5px;line-height:1.35;}
-  .field{text-align:left;margin-bottom:16px;}
-  .field label{display:block;font-size:.72rem;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:#9FE9E0;margin-bottom:6px;}
-  .field input{width:100%;border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.08);color:#fff;
-    border-radius:11px;padding:11px 14px;font-family:inherit;font-size:.9rem;outline:none;transition:.15s;}
-  .field input::placeholder{color:#9FB3CC;}
-  .field input:focus{border-color:var(--teal2);box-shadow:0 0 0 3px rgba(20,200,182,.2);}
-  .btn{width:100%;border:none;border-radius:13px;padding:14px;font-size:.95rem;font-weight:800;cursor:pointer;
-    background:linear-gradient(135deg,var(--teal),var(--teal2));color:#04241F;font-family:inherit;
-    box-shadow:0 16px 32px -16px rgba(20,200,182,1);transition:.18s;}
-  .btn:hover{transform:translateY(-2px);}
-  .err{color:#FFB4B6;font-size:.8rem;font-weight:700;margin-top:12px;min-height:18px;}
-  .hint{margin-top:14px;background:rgba(255,255,255,.07);border:1px dashed rgba(255,255,255,.25);border-radius:12px;
-    padding:10px 14px;font-size:.72rem;color:#C3D4EB;text-align:left;line-height:1.8;}
-  .hint b{color:#9FE9E0;} .hint code{background:rgba(0,0,0,.28);padding:2px 7px;border-radius:5px;color:#7FD8FF;}
-  .note{font-size:.72rem;color:#C3D4EB;margin-top:14px;line-height:1.6;}
-  @media (max-width:560px){ .roles{grid-template-columns:1fr;} }
 </style>
 </head>
 <body>
-  <div class="card">
-    <div class="crest">IK</div>
-    <h1>Iringkawal Analyzer</h1>
-    <div class="sub">Supervisor Dashboard · BPK 2026</div>
-    <form method="post" action="{{ url_for('login') }}" id="loginForm">
-      <div class="roles">
-        {% for key, r in roles.items() %}
-        <button type="button" class="role{% if key == 'staff' %} sel{% endif %}" data-role="{{ key }}">
-          <span class="ri">{{ r.icon }}</span><span class="rn">{{ r.label }}</span>
-          <div class="rd">
-            {% if key == 'staff' %}Muat naik, tambah, edit &amp; padam data
-            {% elif key == 'penyelia' %}Pantau &amp; edit — tiada muat naik / padam
-            {% else %}Lihat sahaja &amp; eksport laporan{% endif %}
+  <div class="auth">
+    <aside class="auth-aside">
+      <div class="crest">IK</div>
+      <h1>Iringkawal Analyzer</h1>
+      <p class="tag">Supervisor Dashboard · BPK 2026</p>
+      <ul>
+        <li><b>📊</b> Pemantauan fail reman &amp; KPI automatik</li>
+        <li><b>📈</b> Carta warganegara &amp; jenis kesalahan</li>
+        <li><b>👥</b> Beban kerja pegawai pengiring</li>
+        <li><b>🖨️</b> Laporan PDF mengikut pilihan anda</li>
+      </ul>
+      <div class="foot">Bahagian Pengurusan Kesalahan (BPK) · Sistem demo</div>
+    </aside>
+    <main class="auth-main">
+      <div class="auth-card">
+        <h2>Log Masuk</h2>
+        <p class="sub">Pilih peranan anda untuk teruskan</p>
+        <form method="post" action="{{ url_for('login') }}" id="loginForm">
+          <div class="roles">
+            {% for key, r in roles.items() %}
+            <button type="button" class="role{% if key == 'staff' %} sel{% endif %}" data-role="{{ key }}">
+              <span class="ri">{{ r.icon }}</span><span class="rn">{{ r.label }}</span>
+            </button>
+            {% endfor %}
           </div>
-        </button>
-        {% endfor %}
+          <input type="hidden" name="role" id="roleInput" value="staff" />
+          <div class="field">
+            <label>Nama Pengguna</label>
+            <input type="text" name="name" placeholder="cth. Ahmad (pilihan)" autocomplete="off" />
+          </div>
+          <div class="field">
+            <label>Kata Laluan</label>
+            <input type="password" name="password" placeholder="Kata laluan peranan" autocomplete="off" required />
+          </div>
+          <button type="submit" class="btn">🔓 Masuk ke Sistem</button>
+          <div class="err">{{ error }}</div>
+        </form>
+        <div class="hint">
+          <b>Demo:</b> 🧑‍💼 Staff <code>staff2026</code> · 👁️ Penyelia <code>penyelia2026</code> · 🧑‍✈️ Boss <code>boss2026</code>
+        </div>
       </div>
-      <input type="hidden" name="role" id="roleInput" value="staff" />
-      <div class="field">
-        <label>Nama Pengguna</label>
-        <input type="text" name="name" placeholder="cth. Ahmad (pilihan)" autocomplete="off" />
-      </div>
-      <div class="field">
-        <label>Kata Laluan</label>
-        <input type="password" name="password" placeholder="Kata laluan peranan" autocomplete="off" required />
-      </div>
-      <button type="submit" class="btn">🔓 Masuk ke Sistem</button>
-      <div class="err">{{ error }}</div>
-    </form>
-    <div class="hint">
-      <b>Demo:</b> 🧑‍💼 Staff <code>staff2026</code> · 👁️ Penyelia <code>penyelia2026</code> · 🧑‍✈️ Boss <code>boss2026</code>
-    </div>
-    <div class="note">Peranan menentukan akses tindakan. Sistem menggunakan sesi pelayan (Flask session).</div>
+    </main>
   </div>
 <script>
   document.querySelectorAll(".role").forEach(function (el) {

@@ -828,7 +828,8 @@ function catatanOptions(){ return uniqSorted('catatan'); }
 /* ------------------------- tindakan penuh ------------------------- */
 function tindakanPenuh(r){
   const t = normText(r.tindakan);
-  const c = normText(r.catatan);
+  let c = normText(r.catatan);
+  if(c === '-' || c === 'TIADA' || c === 'TIADA CATATAN') c = '';   // anggap kosong
   if(!c) return t || '(TIADA)';
   if(!t) return c;
   if(c === t) return t;
@@ -841,6 +842,13 @@ function tindakanPillClass(v){
   if(t.indexOf('BEBAS')!==-1) return 'pill-bebas';
   if(t.indexOf('USIR')!==-1) return 'pill-usir';
   return 'pill-other';
+}
+/* Mapping Depot ikut TINDAKAN asal (bukan Catatan): BEBAS -> KOTA KINABALU, USIR -> PAPAR */
+function depotFromTindakan(t){
+  const s = normText(t);
+  if(s.indexOf('BEBAS') === 0) return 'KOTA KINABALU';
+  if(s.indexOf('USIR') === 0) return 'PAPAR';
+  return null;
 }
 
 /* =======================================================================
@@ -1046,7 +1054,7 @@ function renderSenarai(){
   const tbody = pageRows.map(r=>{
     const tds = COLS.map(c=>{
       if(c.type==='date') return `<td class="nowrap">${esc(displayDate(r[c.k]))}</td>`;
-      if(c.k==='tindakan') return `<td class="nowrap"><span class="pill ${tindakanPillClass(r.tindakan)}">${esc(normText(r.tindakan)||'-')}</span></td>`;
+      if(c.k==='tindakan'){ const tp = tindakanPenuh(r); return `<td class="nowrap"><span class="pill ${tindakanPillClass(tp)}">${esc(tp||'-')}</span></td>`; }
       if(c.k==='nama') return `<td class="nowrap txt-navy">${esc(r[c.k]||'-')}</td>`;
       if(c.k==='catatan'){ const v=normText(r[c.k]); return `<td>${v?esc(v):'<span style="color:#b6bfcc">-</span>'}</td>`; }
       return `<td>${esc(r[c.k]||'-')}</td>`;
@@ -1127,6 +1135,14 @@ function openForm(row){
   document.getElementById('modalRoot').innerHTML = html;
   bindOverlayClose(document.getElementById('formOverlay'));
   document.getElementById('formOverlay').querySelector('#saveForm').addEventListener('click', ()=>saveForm(row));
+  // Auto-set Depot ikut Tindakan
+  const tSel = document.getElementById('f_tindakan');
+  const dSel = document.getElementById('f_depot');
+  if(tSel && dSel){
+    const applyDepot = ()=>{ const dp = depotFromTindakan(tSel.value); if(dp) dSel.value = dp; };
+    tSel.addEventListener('change', applyDepot);
+    if(!editing) applyDepot();
+  }
 }
 function formFieldHTML(c, val){
   const id = 'f_'+c.k;
@@ -1163,6 +1179,7 @@ function saveForm(existing){
     else v = normText(v);
     obj[c.k] = v;
   });
+  const _dp = depotFromTindakan(obj.tindakan); if(_dp) obj.depot = _dp;
   if(!obj.nama){ toast('Nama tidak boleh kosong.','error'); return; }
   if(existing){
     assignRow(existing, obj);
