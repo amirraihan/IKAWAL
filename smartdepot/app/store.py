@@ -103,6 +103,6 @@ def load_from_settings(root: Path, configured: str, today: date, capacity_pressu
     path = resolve_reman_file(root, configured)
     if path is None:
         raise RegisterMissing(
-            'No reman register found. Set APP_REMAN_FILE, or place an .xlsx in data/, app/data/, .local/ or the repo data/ folder.'
+            'Tiada daftar reman dijumpai. Tetapkan APP_REMAN_FILE, atau letakkan fail .xlsx dalam data/, app/data/, .local/ atau folder data/ repositori.'
         )
     return path, load_cases(path, today, capacity_pressure_for)

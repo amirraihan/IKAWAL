@@ -34,15 +34,15 @@ function tile(label, value) {
 }
 function renderSummary(data) {
   summaryBox.replaceChildren(
-    tile('Open cases', data.open),
+    tile('Kes terbuka', data.open),
     tile('Kritikal', data.by_label.Kritikal),
     tile('Tinggi', data.by_label.Tinggi),
     tile('Sederhana', data.by_label.Sederhana),
     tile('Rendah', data.by_label.Rendah),
-    tile('Overdue', data.overdue),
-    tile('Due today', data.due_today),
-    tile('Due ≤ 3 days', data.due_soon),
-    tile('Invalid records', data.invalid),
+    tile('Tertunggak', data.overdue),
+    tile('Tamat hari ini', data.due_today),
+    tile('Tamat ≤ 3 hari', data.due_soon),
+    tile('Rekod tidak sah', data.invalid),
   );
   if (depotFilter.options.length <= 1) {
     for (const [depot, count] of Object.entries(data.by_depot)) {
@@ -57,7 +57,7 @@ function renderCases(data) {
   tableBody.replaceChildren();
   if (!data.cases.length) {
     const row = document.createElement('tr');
-    row.append(cell('No cases match the current filters.', 'empty'));
+    row.append(cell('Tiada kes sepadan dengan tapisan semasa.', 'empty'));
     row.lastChild.colSpan = 9;
     tableBody.append(row);
     return;
@@ -93,10 +93,10 @@ function exportWorklist(format) {
   document.body.append(link);
   link.click();
   link.remove();
-  uc2Status.textContent = `Preparing the ${format.toUpperCase()} export…`;
+  uc2Status.textContent = `Menyediakan eksport ${format.toUpperCase()}…`;
 }
 async function loadWorklist() {
-  uc2Status.textContent = 'Refreshing cases…';
+  uc2Status.textContent = 'Memuat semula kes…';
   const params = filterParams();
   try {
     const [summaryResponse, casesResponse] = await Promise.all([
@@ -106,16 +106,16 @@ async function loadWorklist() {
     if (summaryResponse.status === 503 || casesResponse.status === 503) {
       const detail = await (summaryResponse.status === 503 ? summaryResponse : casesResponse).json();
       summaryBox.replaceChildren();
-      uc2Status.textContent = detail.detail || 'No reman register is loaded.';
+      uc2Status.textContent = detail.detail || 'Tiada daftar reman dimuatkan.';
       return;
     }
-    if (!summaryResponse.ok || !casesResponse.ok) throw new Error('Could not load the worklist.');
+    if (!summaryResponse.ok || !casesResponse.ok) throw new Error('Tidak dapat memuatkan senarai keutamaan.');
     const summary = await summaryResponse.json();
     const cases = await casesResponse.json();
     renderSummary(summary);
     renderCases(cases);
-    caption.textContent = `${cases.shown} of ${cases.total} cases · register ${cases.file} · as at ${cases.generated}`;
-    uc2Status.textContent = 'Scores are advisory rules; officers decide.';
+    caption.textContent = `${cases.shown} daripada ${cases.total} kes · daftar ${cases.file} · setakat ${cases.generated}`;
+    uc2Status.textContent = 'Skor ialah peraturan nasihat; pegawai yang memutuskan.';
   } catch (error) {
     uc2Status.textContent = error.message;
   }
@@ -141,9 +141,9 @@ function message(role, text) {
 }
 async function info() {
   const response = await fetch('/api/info');
-  if (!response.ok) throw new Error('Open the app through its sign-in URL.');
+  if (!response.ok) throw new Error('Buka aplikasi melalui URL daftar masuknya.');
   const data = await response.json();
-  document.querySelector('#connection').textContent = `${data.model} · ${data.tools_enabled ? 'Case tools available' : 'Chat only'} · ${data.identity}`;
+  document.querySelector('#connection').textContent = `${data.model} · ${data.tools_enabled ? 'Alat kes tersedia' : 'Sembang sahaja'} · ${data.identity}`;
 }
 info().catch(error => { status.textContent = error.message; });
 form.addEventListener('submit', async event => {
@@ -151,19 +151,19 @@ form.addEventListener('submit', async event => {
   const text = prompt.value.trim();
   if (!text) return;
   send.disabled = reset.disabled = true;
-  status.textContent = 'Working on your answer. This can take up to three minutes.';
-  message('You', text);
+  status.textContent = 'Sedang menyediakan jawapan. Ini boleh mengambil sehingga tiga minit.';
+  message('Anda', text);
   try {
     const response = await fetch('/api/chat', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({prompt: text, history: history.slice(-4)})});
-    if (!(response.headers.get('content-type') || '').includes('application/json')) throw new Error('Your session may have expired. Reload this page and sign in again.');
+    if (!(response.headers.get('content-type') || '').includes('application/json')) throw new Error('Sesi anda mungkin telah tamat. Muat semula halaman ini dan daftar masuk semula.');
     const data = await response.json();
-    if (!response.ok) throw new Error(data.detail || 'The request failed.');
-    message('Assistant', data.answer);
+    if (!response.ok) throw new Error(data.detail || 'Permintaan gagal.');
+    message('Pembantu', data.answer);
     history.push({role: 'user', content: text.slice(0, 8000)}, {role: 'assistant', content: data.answer.slice(0, 8000)});
     lastAnswer = data.answer;
     download.disabled = false;
     prompt.value = '';
-    status.textContent = data.tools.length ? `Tools used: ${data.tools.map(tool => tool.name + (tool.ok ? '' : ' (failed)')).join(', ')}` : 'Answer ready.';
+    status.textContent = data.tools.length ? `Alat digunakan: ${data.tools.map(tool => tool.name + (tool.ok ? '' : ' (gagal)')).join(', ')}` : 'Jawapan sedia.';
   } catch (error) {
     status.textContent = error.message;
   } finally {
@@ -176,7 +176,7 @@ reset.addEventListener('click', () => {
 });
 download.addEventListener('click', () => {
   const url = URL.createObjectURL(new Blob([lastAnswer], {type: 'text/markdown;charset=utf-8'}));
-  const link = document.createElement('a'); link.href = url; link.download = 'smartdepot-briefing.md'; link.click();
+  const link = document.createElement('a'); link.href = url; link.download = 'ringkasan-smartdepot.md'; link.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 });
 loadWorklist();

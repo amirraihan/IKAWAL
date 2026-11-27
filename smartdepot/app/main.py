@@ -106,9 +106,9 @@ def create_app(settings=None, transport=None):
     async def identity(request, call_next):
         if request.url.path not in ('/health/live', '/health/ready') and settings.auth_mode == 'proxy':
             if not request.headers.get('x-forwarded-user'):
-                return JSONResponse({'detail': 'Sign in through the application URL.'}, status_code=401)
+                return JSONResponse({'detail': 'Daftar masuk melalui URL aplikasi.'}, status_code=401)
             if request.method == 'POST' and request.headers.get('origin') != settings.public_url.rstrip('/'):
-                return JSONResponse({'detail': 'Request origin is not allowed.'}, status_code=403)
+                return JSONResponse({'detail': 'Asal permintaan tidak dibenarkan.'}, status_code=403)
         response = await call_next(request)
         response.headers['X-Content-Type-Options'] = 'nosniff'
         response.headers['Referrer-Policy'] = 'same-origin'
@@ -138,7 +138,7 @@ def create_app(settings=None, transport=None):
 
     @app.get('/api/info')
     async def info(request: Request):
-        return {'model': settings.model, 'tools_enabled': settings.model in settings.tool_models, 'identity': request.headers.get('x-forwarded-preferred-username', 'Local workshop user'), 'auth_mode': settings.auth_mode}
+        return {'model': settings.model, 'tools_enabled': settings.model in settings.tool_models, 'identity': request.headers.get('x-forwarded-preferred-username', 'Pengguna bengkel tempatan'), 'auth_mode': settings.auth_mode}
 
     def register(today):
         try:
@@ -191,7 +191,7 @@ def create_app(settings=None, transport=None):
         try:
             limit = max(1, min(int(request.query_params.get('limit', '200')), 1000))
         except ValueError:
-            raise HTTPException(422, 'limit must be a whole number.')
+            raise HTTPException(422, 'limit mestilah nombor bulat.')
         return {'file': path.name, 'generated': today.isoformat(), 'total': len(selected), 'shown': min(limit, len(selected)), 'cases': [c.to_public() for c in selected[:limit]]}
 
     EXPORT_COLUMNS = [
@@ -215,7 +215,7 @@ def create_app(settings=None, transport=None):
         return table
 
     def export_name(today, suffix):
-        return f'uc2_priority_worklist_{today.isoformat()}{suffix}'
+        return f'uc2_senarai_keutamaan_{today.isoformat()}{suffix}'
 
     @app.get('/api/uc2/export.xlsx')
     async def uc2_export_xlsx(request: Request):
@@ -243,12 +243,12 @@ def create_app(settings=None, transport=None):
         scope = active['label'] or 'Semua keutamaan'
         if active['depot']:
             scope += f" / {active['depot']}"
-        subtitle = f'SmartDepot UC-2 - {len(selected)} kes - {scope} - register {path.name} - {today.isoformat()}'
+        subtitle = f'SmartDepot UC-2 - {len(selected)} kes - {scope} - daftar {path.name} - {today.isoformat()}'
         rows = []
         for case in selected:
             public = case.to_public()
             rows.append([public['no_reman'], public['nama'], public['depot'], public['nama_pegawai'], public['tarikh_reman_tamat'], public['hari_berbaki'], public['status_reman'], public['label'], public['score'], public['action']])
-        body = table_pdf('Priority Worklist - Case Decision Support', subtitle, PDF_COLUMNS, rows, PDF_WEIGHTS)
+        body = table_pdf('Senarai Keutamaan - Sokongan Keputusan Kes', subtitle, PDF_COLUMNS, rows, PDF_WEIGHTS)
         return Response(content=body, media_type='application/pdf', headers={'Content-Disposition': f'attachment; filename="{export_name(today, ".pdf")}"'})
 
     @app.get('/api/uc2/case/{no_reman}')
@@ -258,22 +258,22 @@ def create_app(settings=None, transport=None):
         key = no_reman.strip().upper()
         matches = [c for c in cases if c.no_reman.upper() == key]
         if not matches:
-            raise HTTPException(404, 'No case with that NO.REMAN was found.')
+            raise HTTPException(404, 'Tiada kes dengan NO.REMAN itu ditemui.')
         return {'file': path.name, 'generated': today.isoformat(), 'duplicates': len(matches) - 1, 'case': matches[0].to_public()}
 
     @app.post('/api/chat')
     async def chat(request: Request):
         if not settings.api_key:
-            raise HTTPException(503, 'Run Setup App.cmd and enter your LiteLLM key.')
+            raise HTTPException(503, 'Jalankan Setup App.cmd dan masukkan kunci LiteLLM anda.')
         body = bytearray()
         async for chunk in request.stream():
             body.extend(chunk)
             if len(body) > 65536:
-                raise HTTPException(413, 'The conversation is too large. Start a new chat.')
+                raise HTTPException(413, 'Perbualan terlalu besar. Mulakan sembang baharu.')
         try:
             data = Chat.model_validate_json(body)
         except ValidationError:
-            raise HTTPException(422, 'Enter a prompt up to 8,000 characters with at most eight recent messages.')
+            raise HTTPException(422, 'Masukkan gesaan sehingga 8,000 aksara dengan paling banyak lapan mesej terkini.')
         try:
             async with asyncio.timeout(180), limits:
                 try:
@@ -285,19 +285,19 @@ def create_app(settings=None, transport=None):
             status = exc.response.status_code
             logging.getLogger('pcai').warning('LiteLLM request failed with HTTP %d for model %s; response body omitted.', status, settings.model)
             if status in (401, 403):
-                detail = 'LiteLLM rejected the key or model access. In LiteLLM, create a virtual key without selecting a team, or allow this exact model on the key. Then run Setup App.cmd again.'
+                detail = 'LiteLLM menolak kunci atau akses model. Dalam LiteLLM, cipta kunci maya tanpa memilih pasukan, atau benarkan model ini pada kunci tersebut. Kemudian jalankan Setup App.cmd sekali lagi.'
             elif status == 404 or (status == 400 and model_missing(exc.response)):
-                detail = f'LiteLLM could not find model {settings.model} for this request. Confirm the VPN endpoint ends in /v1, this exact model is deployed, and your virtual key was created without a team or allows this model. Then run Setup App.cmd again.'
+                detail = f'LiteLLM tidak menemui model {settings.model} untuk permintaan ini. Pastikan titik akhir VPN berakhir dengan /v1, model ini benar-benar digunakan, dan kunci maya anda dicipta tanpa pasukan atau membenarkan model ini. Kemudian jalankan Setup App.cmd sekali lagi.'
             elif status == 400:
-                detail = 'LiteLLM rejected the chat request. Check the selected model and ask the LiteLLM administrator to review the gateway policy.'
+                detail = 'LiteLLM menolak permintaan sembang. Semak model yang dipilih dan minta pentadbir LiteLLM menyemak dasar gerbang.'
             else:
-                detail = 'LiteLLM could not complete the request. Check the LiteLLM service and try again.'
+                detail = 'LiteLLM tidak dapat menyelesaikan permintaan. Semak perkhidmatan LiteLLM dan cuba lagi.'
             raise HTTPException(502, detail)
         except (httpx.RequestError, TimeoutError):
-            raise HTTPException(504, 'Cannot reach LiteLLM. Check VPN, certificates, and endpoint access.')
+            raise HTTPException(504, 'Tidak dapat menghubungi LiteLLM. Semak VPN, sijil dan akses titik akhir.')
         except (KeyError, IndexError, TypeError, ValueError):
             logging.getLogger('pcai').warning('Unexpected model response; response body omitted.')
-            raise HTTPException(502, 'The model returned an unsupported response. Try DeepSeek or Qwen2.5.')
+            raise HTTPException(502, 'Model memulangkan respons yang tidak disokong. Cuba DeepSeek atau Qwen2.5.')
 
     return app
 

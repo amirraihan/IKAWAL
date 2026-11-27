@@ -104,7 +104,7 @@ def table_pdf(title: str, subtitle: str, headers: list[str], rows: list[list], w
         y = page_h - _MARGIN
         ops.append(f'BT /F2 {_TITLE_SIZE} Tf {_MARGIN:.2f} {y:.2f} Td ({_escape(_clean(title))}) Tj ET')
         y -= _TITLE_SIZE + 3
-        subtitle_full = f'{_clean(subtitle)}  (page {index}/{len(pages)})'
+        subtitle_full = f'{_clean(subtitle)}  (halaman {index}/{len(pages)})'
         ops.append(f'BT /F1 {_SUB_SIZE} Tf {_MARGIN:.2f} {y:.2f} Td ({_escape(subtitle_full)}) Tj ET')
         y -= _SUB_SIZE + 10
         ops.append(f'0.9 w 0.16 0.16 0.16 RG {_MARGIN:.2f} {y - header_height:.2f} m {page_w - _MARGIN:.2f} {y - header_height:.2f} l S')

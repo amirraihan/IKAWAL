@@ -209,7 +209,7 @@ def test_static_ui_exposes_worklist_without_inline_script(tmp_path):
     path = write_xlsx(tmp_path / 'reman.xlsx', HEADER, register_rows())
     with client_for(path) as client:
         page = client.get('/').text
-        assert 'Priority worklist' in page
+        assert 'Senarai Keutamaan' in page
         assert '<script>' not in page
         assert client.get('/app.js').status_code == 200
 
