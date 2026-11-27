@@ -587,4 +587,52 @@ IKAWAL/
 
 ---
 
+## 18. Lampiran B — Galeri Carta & Graf
+
+Semua carta di bawah dijana daripada **data sebenar** (`dashboard/data.js`, sumber
+`data/iringkawal_bpk2026.xlsx`) dan sepadan dengan carta interaktif dalam *Dashboard
+Reman JIM Sabah* (`dashboard/index.html`). Diagram aliran, ERD dan sequence diagram
+pula terdapat dalam **Bahagian 4–6**. Peta asal-warganegara ialah peta interaktif
+Leaflet (hanya dalam dashboard, bukan imej statik).
+
+### 18.1 KPI
+**Pecahan Warganegara (Donut)** — Filipina mencatat ~82%.
+![Pecahan warganegara](_charts/chart_01_pecahan_warganegara.png)
+
+**Kategori Risiko Kes Terbuka**
+![Kategori risiko kes terbuka](_charts/chart_02_risiko_kes.png)
+
+**Pecahan Keseriusan Kes**
+![Pecahan keseriusan](_charts/chart_03_keseriusan.png)
+
+### 18.2 Profil Banduan
+**Piramid Jantina & Kumpulan Umur**
+![Piramid jantina dan umur](_charts/chart_04_piramid_umur.png)
+
+**Taburan Umur**
+![Taburan umur](_charts/chart_05_taburan_umur.png)
+
+### 18.3 Kesalahan × Warganegara
+**Pecahan Warganegara (Bar)**
+![Pecahan warganegara bar](_charts/chart_06_pecahan_warganegara_bar.png)
+
+**Warganegara → Bangsa (Treemap)**
+![Treemap warganegara bangsa](_charts/chart_07_treemap_bangsa.png)
+
+### 18.4 Tindakan & Pegawai
+**Trend Reman Mengikut Depot (DIKK vs DIP)**
+![Trend depot](_charts/chart_08_trend_depot.png)
+
+**Korelasi Beban Kes & Kualiti Data (Bubble)**
+![Bubble beban kualiti](_charts/chart_09_bubble_pegawai.png)
+
+**Akta × Kumpulan Umur (Heatmap, % dalam setiap akta)**
+![Heatmap akta umur](_charts/chart_10_heatmap_akta_umur.png)
+
+### 18.5 Trend
+**Reman Baharu & Lanjutan (>14 hari) Mengikut Bulan**
+![Trend bulanan](_charts/chart_11_trend_bulanan.png)
+
+---
+
 **Tamat dokumen.** — *Design First. Build With Confidence.*

@@ -73,6 +73,39 @@ for key, path in diagrams.items():
     body = body.replace("<!--%s-->" % key, img)
     body = body.replace("<p><!--%s--></p>" % key, img)
 
+# resolve imej + set saiz eksplisit (cm) supaya xhtml2pdf render betul
+try:
+    from PIL import Image as _PILImage
+except Exception:
+    _PILImage = None
+
+
+def _img_tag(m):
+    tag = m.group(0)
+    sm = re.search(r'src="([^"]+)"', tag)
+    if not sm:
+        return tag
+    src = sm.group(1)
+    if src.startswith(("http://", "https://", "data:")):
+        return tag
+    cand = src if os.path.isabs(src) else os.path.join(HERE, src)
+    if not os.path.exists(cand):
+        return tag
+    cand = cand.replace("\\", "/")
+    aspect = 1.6
+    try:
+        if _PILImage:
+            w, h = _PILImage.open(cand).size
+            aspect = (w / h) if h else 1.6
+    except Exception:
+        pass
+    width_cm = 17.4
+    height_cm = round(width_cm / aspect, 2)
+    return '<img src="%s" style="width:%scm;height:%scm;"/>' % (cand, width_cm, height_cm)
+
+
+body = re.sub(r"<img[^>]*>", _img_tag, body)
+
 # aksara yang tak ada dalam font terbina (Helvetica/Courier) -> ASCII untuk PDF
 REPL = [
     ("\u2192", "->"), ("\u2705", "Ya"), ("\u274c", "Tidak"), ("\u2610", "[ ]"),
