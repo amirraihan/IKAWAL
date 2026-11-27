@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Dashboard Reman JIM Sabah</title>
+
+<!-- Peta -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<!-- Tailwind (CDN, tiada build step) -->
+<script src="https://cdn.tailwindcss.com"></script>
+
+<!-- React + Recharts -->
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/prop-types@15.8.1/prop-types.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-is@18/umd/react-is.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/recharts@2.12.7/umd/Recharts.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js" crossorigin></script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+<style>
+  :root{
+    --bg:#EEF2F7; --navy:#0B2C4A; --navy2:#163E63; --yellow:#F2B705;
+    --red:#E5484D; --orange:#F2762E; --green:#2E9E5B; --cyan:#35B6C9;
+    --line:#DCE5F0; --muted:#5F7389; --ink:#1C2B3A;
+  }
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);
+    font-family:'Inter',Arial,sans-serif;-webkit-font-smoothing:antialiased}
+  *{box-sizing:border-box}
+  ::-webkit-scrollbar{width:10px;height:10px}
+  ::-webkit-scrollbar-thumb{background:#c4d1e2;border-radius:8px;border:2px solid var(--bg)}
+  .card{background:#fff;border-radius:16px;border:1px solid #E7EDF5;
+    box-shadow:0 10px 24px rgba(11,44,74,.07)}
+  .recharts-surface{overflow:visible}
+  .recharts-cartesian-axis-tick text{fill:#5F7389;font-size:11px}
+  .chart-click .recharts-rectangle,.chart-click .recharts-symbols,
+  .chart-click .recharts-pie-sector,.chart-click .recharts-dot{cursor:pointer}
+  .heat-cell{cursor:pointer;transition:.15s}
+  .heat-cell:hover{outline:2px solid var(--navy)}
+  .jim-star{color:var(--yellow);font-size:22px;line-height:22px;text-shadow:0 0 4px #000,0 0 2px #000;text-align:center}
+  .leaflet-container{font-family:'Inter',Arial,sans-serif}
+</style>
+</head>
+<body>
+<div id="root" class="p-4 md:p-6 max-w-[1500px] mx-auto"></div>
+
+<!-- data dummy -->
+<script src="data.js"></script>
+
+<!-- aplikasi React -->
+<script type="text/x-app-src" id="appsrc">
+const { useState, useMemo, useEffect, useRef } = React;
+const R = Recharts;
+const {
+  ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis,
+  CartesianGrid, Tooltip, Legend, LineChart, Line, ScatterChart, Scatter, ZAxis,
+  ReferenceLine
+} = R;
+
+const money = (n) => (n == null ? "-" : Number(n).toLocaleString("en-MY"));
+const NAVY = "#0B2C4A";
+
+/* ---------- Ikon ringkas ---------- */
+const Icon = {
+  grid: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 4l4 16M10 4l4 16M16 4l4 16"/></svg>,
+  plane: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M2 12l20-8-8 20-2-8-10-4z"/></svg>,
+  cal: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>,
+  people: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="9" cy="8" r="3.2"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6"/><path d="M17 8a3 3 0 010 6"/></svg>,
+  x: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"><path d="M18 6L6 18M6 6l12 12"/></svg>,
+};
+
+function Card({ className = "", children, style }) {
+  return <div className={"card " + className} style={style}>{children}</div>;
+}
+function SectionLabel({ children }) {
+  return (
+    <div className="flex items-center gap-2 mb-3 mt-1">
+      <span style={{ width: 4, height: 18, background: "var(--yellow)", borderRadius: 3 }} />
+      <h2 className="text-[13px] font-extrabold tracking-wide" style={{ color: NAVY }}>{children}</h2>
+    </div>
+  );
+}
+function MiniBar({ value, max, color, height = 10 }) {
+  const w = max ? Math.max(2, (value / max) * 100) : 0;
+  return (
+    <div style={{ height, background: "#EDF2F8", borderRadius: 999, overflow: "hidden", width: "100%" }}>
+      <div style={{ height: "100%", width: w + "%", background: color, borderRadius: 999 }} />
+    </div>
+  );
+}
+
+/* ========================================================================== */
+/*  HEADER                                                                    */
+/* ========================================================================== */
+function Header() {
+  const d = REMAN_DATA;
+  return (
+    <div className="card relative overflow-hidden mb-4" style={{ borderTop: "4px solid var(--yellow)" }}>
+      <div className="p-6 md:p-7" style={{ background: "linear-gradient(120deg,#0B2C4A,#123A63)" }}>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <div className="text-[11px] font-bold tracking-[.18em] text-[#9fc2ef] mb-1">IRINGKAWAL · JIM SABAH</div>
+            <h1 className="text-white text-2xl md:text-[28px] font-extrabold leading-tight">{d.meta.title}</h1>
+            <p className="text-[#bcd0e6] text-[12.5px] mt-2">
+              Ringkasan reman &amp; analitik · {d.meta.refFrom} – {d.meta.refTo}
+              {d.meta.dummy ? " · data contoh" : ""}
+            </p>
+          </div>
+          <div className="text-[var(--yellow)] opacity-90 pt-1">{Icon.grid}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ========================================================================== */
+/*  SECTION 1 — PENAPIS                                                       */
+/* ========================================================================== */
+function Filters({ f, set, reset }) {
+  const o = REMAN_DATA.options;
+  const Sel = ({ k, label }) => (
+    <label className="flex flex-col gap-1">
+      <span className="text-[11px] font-semibold" style={{ color: "var(--muted)" }}>{label}</span>
+      <select value={f[k]} onChange={(e) => set(k, e.target.value, true)}
+        className="text-[12.5px] rounded-lg border px-3 py-2 bg-white outline-none"
+        style={{ borderColor: "var(--line)", color: "var(--ink)" }}>
+        {o[k].map((v) => <option key={v} value={v}>{v}</option>)}
+      </select>
+    </label>
+  );
+  return (
+    <Card className="p-5 mb-4">
+      <div className="text-[12px] font-extrabold tracking-wide mb-4" style={{ color: NAVY }}>
+        PENAPIS — KLIK BAR PADA CARTA UNTUK MENAPIS TERUS
+      </div>
+      <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-3 items-end">
+        <label className="flex flex-col gap-1 col-span-2 md:col-span-2 xl:col-span-2">
+          <span className="text-[11px] font-semibold" style={{ color: "var(--muted)" }}>Tarikh reman mula</span>
+          <div className="flex items-center gap-1">
+            <input type="date" defaultValue="2026-01-02" className="text-[12.5px] rounded-lg border px-2 py-2 bg-white" style={{ borderColor: "var(--line)" }} />
+            <span style={{ color: "var(--muted)" }}>–</span>
+            <input type="date" defaultValue="2026-11-26" className="text-[12.5px] rounded-lg border px-2 py-2 bg-white" style={{ borderColor: "var(--line)" }} />
+          </div>
+        </label>
+        <Sel k="depot" label="Depot" />
+        <Sel k="warganegara" label="Warganegara" />
+        <Sel k="akta" label="Akta" />
+        <Sel k="keseriusan" label="Keseriusan" />
+        <Sel k="pegawai" label="Pegawai" />
+        <Sel k="tindakan" label="Tindakan" />
+        <button onClick={reset}
+          className="text-[12.5px] font-semibold rounded-lg px-3 py-2 flex items-center justify-center gap-2 text-white h-[38px]"
+          style={{ background: NAVY }}>
+          {Icon.x} Set semula
+        </button>
+      </div>
+    </Card>
+  );
+}
+
+/* ========================================================================== */
+/*  SECTION 2 — KPI ROW                                                       */
+/* ========================================================================== */
+function KpiTotal({ f, set }) {
+  const k = REMAN_DATA.kpi;
+  const selected = f.warganegara !== "Semua";
+  const n = selected ? (REMAN_DATA.nationalityBars.find((x) => x.name === f.warganegara)?.value || k.totalReman) : k.totalReman;
+  const pie = selected
+    ? [{ name: f.warganegara, value: 100, color: "#0B2C4A" }]
+    : k.nationalityPie;
+  return (
+    <Card className="p-4 flex items-center gap-3">
+      <div style={{ width: 104, height: 104, flex: "0 0 auto" }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie data={pie} dataKey="value" innerRadius={30} outerRadius={50} paddingAngle={2} stroke="none"
+              onClick={(e) => e && e.name && set("warganegara", e.name)}>
+              {pie.map((p, i) => <Cell key={i} fill={p.color} />)}
+            </Pie>
+            <Tooltip formatter={(v) => v + "%"} />
+          </PieChart>
+        </ResponsiveContainer>
+      </div>
+      <div className="min-w-0">
+        <div className="text-[11px] font-bold tracking-wide" style={{ color: "var(--muted)" }}>JUMLAH REMAN KESELURUHAN</div>
+        <div className="text-[30px] font-extrabold leading-none" style={{ color: NAVY }}>{money(n)}</div>
+        <div className="text-[11.5px] mt-2 space-y-0.5">
+          <div className="flex items-center gap-2"><span style={{ width: 10, height: 10, background: "#0B2C4A", borderRadius: 3 }} /> Filipina <b className="ml-auto" style={{ color: NAVY }}>82%</b></div>
+          <div className="flex items-center gap-2"><span style={{ width: 10, height: 10, background: "#F2B705", borderRadius: 3 }} /> Lain-lain <b className="ml-auto" style={{ color: NAVY }}>18%</b></div>
+        </div>
+      </div>
+    </Card>
+  );
+}
+function KpiRow({ f, set }) {
+  const k = REMAN_DATA.kpi;
+  const maxRisk = Math.max(...REMAN_DATA.kpi.risk.map((r) => r.value));
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-4">
+      <KpiTotal f={f} set={set} />
+
+      <Card className="p-4">
+        <div className="flex items-center justify-between">
+          <div className="text-[11px] font-bold tracking-wide" style={{ color: "var(--muted)" }}>KADAR PERATUS USIR</div>
+          <span style={{ color: "var(--navy2)" }}>{Icon.plane}</span>
+        </div>
+        <div className="text-[30px] font-extrabold leading-none mt-2" style={{ color: NAVY }}>{k.usirRate}%</div>
+        <div className="text-[11.5px] mt-2 font-semibold" style={{ color: "var(--green)" }}>
+          ▲ +{k.usirDelta}% <span style={{ color: "var(--muted)", fontWeight: 500 }}>{k.usirDeltaLabel}</span>
+        </div>
+      </Card>
+
+      <Card className="p-4">
+        <div className="flex items-center justify-between">
+          <div className="text-[11px] font-bold tracking-wide" style={{ color: "var(--muted)" }}>REMAN MELEBIHI 14 HARI</div>
+          <span style={{ color: "var(--navy2)" }}>{Icon.cal}</span>
+        </div>
+        <div className="text-[30px] font-extrabold leading-none mt-2" style={{ color: NAVY }}>{money(k.over14)}</div>
+        <div className="text-[11.5px] mt-2" style={{ color: "var(--muted)" }}>Tiada perbandingan</div>
+      </Card>
+
+      <Card className="p-4">
+        <div className="text-[11px] font-bold tracking-wide" style={{ color: "var(--muted)" }}>KATEGORI RISIKO KES TERBUKA</div>
+        <div className="mt-2 space-y-1.5">
+          {k.risk.map((r) => (
+            <div key={r.name} className="flex items-center gap-2 text-[11.5px]">
+              <span className="w-[92px]" style={{ color: "var(--ink)" }}>{r.name}</span>
+              <span className="flex-1"><MiniBar value={r.value} max={maxRisk} color={r.color} height={9} /></span>
+              <b className="w-[24px] text-right" style={{ color: NAVY }}>{r.value}</b>
+            </div>
+          ))}
+        </div>
+        <div className="text-[10.5px] mt-2 pt-2 border-t" style={{ borderColor: "var(--line)", color: "var(--muted)" }}>
+          Sangat Serius: <b style={{ color: NAVY }}>19</b> · Serius: <b style={{ color: NAVY }}>446</b> · Sederhana: <b style={{ color: NAVY }}>668</b> · Ringan: <b style={{ color: NAVY }}>981</b>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+/* ========================================================================== */
+/*  SECTION 3 — PROFIL BANDUAN                                                */
+/* ========================================================================== */
+function ProfileSection() {
+  const pyr = useMemo(() => REMAN_DATA.agePyramid.map((d) => ({ ...d, male: -d.male })), []);
+  const dist = REMAN_DATA.ageDistribution;
+  return (
+    <div className="mb-4">
+      <SectionLabel>PROFIL BANDUAN</SectionLabel>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Card className="p-4">
+          <div className="text-[13px] font-bold mb-1" style={{ color: NAVY }}>PIRAMID JANTAN &amp; KUMPULAN UMUR</div>
+          <div className="flex items-center gap-4 text-[11.5px] mb-1">
+            <span className="flex items-center gap-1"><span style={{ width: 10, height: 10, background: NAVY, borderRadius: 2 }} /> Lelaki</span>
+            <span className="flex items-center gap-1"><span style={{ width: 10, height: 10, background: "var(--yellow)", borderRadius: 2 }} /> Perempuan</span>
+          </div>
+          <div style={{ height: 260 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={pyr} layout="vertical" stackOffset="sign" margin={{ left: 6, right: 12 }}>
+                <CartesianGrid horizontal={false} stroke="#EDF2F8" />
+                <XAxis type="number" tickFormatter={(v) => Math.abs(v)} />
+                <YAxis type="category" dataKey="group" width={54} />
+                <Tooltip formatter={(v) => Math.abs(v)} />
+                <ReferenceLine x={0} stroke="#9fb0c4" />
+                <Bar dataKey="male" name="Lelaki" fill={NAVY} radius={[3, 3, 3, 3]} />
+                <Bar dataKey="female" name="Perempuan" fill="#F2B705" radius={[3, 3, 3, 3]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </Card>
+        <Card className="p-4">
+          <div className="text-[13px] font-bold mb-1" style={{ color: NAVY }}>TABURAN UMUR</div>
+          <div className="text-[11.5px] mb-1" style={{ color: "var(--muted)" }}>Bilangan tahanan mengikut julat umur</div>
+          <div style={{ height: 260 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={dist.labels.map((l, i) => ({ label: l, v: dist.values[i] }))} margin={{ left: 0, right: 8 }}>
+                <CartesianGrid vertical={false} stroke="#EDF2F8" />
+                <XAxis dataKey="label" interval={0} angle={-30} textAnchor="end" height={50} />
+                <YAxis />
+                <Tooltip />
+                <Bar dataKey="v" name="Tahanan" fill={NAVY} radius={[3, 3, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+/* ========================================================================== */
+/*  SECTION 4 — KESALAHAN x WARGANEGARA                                       */
+/* ========================================================================== */
+function KesalahanSection({ f, set }) {
+  const nat = REMAN_DATA.nationalityBars;
+  const max = Math.max(...nat.map((n) => n.value));
+  const tree = REMAN_DATA.treemap;
+  const treeMax = Math.max(...tree.map((t) => t.size));
+  const treeSum = tree.reduce((a, b) => a + b.size, 0);
+  return (
+    <div className="mb-4">
+      <SectionLabel>KESALAHAN × WARGANEGARA</SectionLabel>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Card className="p-4">
+          <div className="text-[13px] font-bold mb-3" style={{ color: NAVY }}>PECAHAN WARGANEGARA</div>
+          <div style={{ height: 300 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={nat} layout="vertical" margin={{ left: 10, right: 40 }}>
+                <CartesianGrid horizontal={false} stroke="#EDF2F8" />
+                <XAxis type="number" />
+                <YAxis type="category" dataKey="name" width={80} />
+                <Tooltip />
+                <Bar dataKey="value" name="Kes" radius={[3, 3, 3, 3]}
+                  onClick={(e) => e && e.name && set("warganegara", e.name)}>
+                  {nat.map((n, i) => <Cell key={i} fill={n.color || NAVY} cursor="pointer"
+                    opacity={f.warganegara === "Semua" || f.warganegara === n.name ? 1 : .28} />)}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </Card>
+        <Card className="p-4">
+          <div className="text-[13px] font-bold mb-1" style={{ color: NAVY }}>WARGANEGARA → BANGSA</div>
+          <div className="text-[11.5px] mb-3" style={{ color: "var(--muted)" }}>Kotak besar = warganegara · kotak kecil = bangsa · saiz = bilangan kes</div>
+          <div className="flex gap-2" style={{ height: 300 }}>
+            {tree.map((t) => (
+              <div key={t.name} className="flex flex-col gap-1" style={{ flexGrow: t.size, flexBasis: 0, minWidth: 90 }}>
+                <div className="text-[11px] font-extrabold text-center py-1 rounded-md text-white"
+                  style={{ background: t.color, opacity: f.warganegara === "Semua" || f.warganegara === titleCase(t.name) ? 1 : .3, cursor: "pointer" }}
+                  onClick={() => set("warganegara", titleCase(t.name))}>
+                  {t.name} · {money(t.size)}
+                </div>
+                <div className="flex-1 flex flex-col gap-1">
+                  {t.children.map((c) => (
+                    <div key={c.name} className="rounded-md flex items-center justify-center text-white"
+                      style={{ flexGrow: c.size, flexBasis: 0, background: shade(t.color), minHeight: 34,
+                        fontSize: Math.max(10, Math.min(13, c.size / 60)) }}>
+                      <span className="px-1 text-center leading-tight">{c.name}<br />{money(c.size)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+/* ========================================================================== */
+/*  SECTION 5 — TINDAKAN & PEGAWAI                                            */
+/* ========================================================================== */
+function TindakanSection({ f, set }) {
+  const t = REMAN_DATA.depotTrend;
+  const bub = REMAN_DATA.bubbles;
+  const heat = REMAN_DATA.aktaAge;
+  const heatRows = heat.values;
+  const flat = heatRows.flat();
+  const hmax = Math.max(...flat), hmin = Math.min(...flat);
+  const heatColor = (v) => {
+    const p = (v - hmin) / (hmax - hmin || 1);
+    const c = [66, 133, 244];
+    const lo = [235, 242, 250];
+    return `rgb(${Math.round(lo[0] - (lo[0] - 11) * p)},${Math.round(lo[1] - (lo[1] - 44) * p)},${Math.round(lo[2] - (lo[2] - 74) * p)})`;
+  };
+  return (
+    <div className="mb-4">
+      <SectionLabel>TINDAKAN &amp; PEGAWAI</SectionLabel>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Card className="p-4 chart-click">
+          <div className="text-[13px] font-bold mb-2" style={{ color: NAVY }}>TREND REMAN MENGIKUT DEPOT</div>
+          <div style={{ height: 260 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={t.labels.map((l, i) => ({ label: l, DIKK: t.DIKK[i], DIP: t.DIP[i] }))} margin={{ left: 0, right: 10 }}>
+                <CartesianGrid stroke="#EDF2F8" />
+                <XAxis dataKey="label" />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Line type="monotone" dataKey="DIKK" stroke={NAVY} strokeWidth={2.5} dot={{ r: 3 }} activeDot={{ r: 6 }}
+                  onClick={() => set("depot", "DIKK (Kota Kinabalu)")} />
+                <Line type="monotone" dataKey="DIP" stroke="#F2B705" strokeWidth={2.5} dot={{ r: 3 }} activeDot={{ r: 6 }}
+                  onClick={() => set("depot", "DIP (Papar)")} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </Card>
+
+        <Card className="p-4 chart-click">
+          <div className="text-[13px] font-bold mb-1" style={{ color: NAVY }}>KORELASI BEBAN KES &amp; KUALITI DATA</div>
+          <div className="flex items-center gap-3 text-[11px] mb-1" style={{ color: "var(--muted)" }}>
+            <span className="flex items-center gap-1"><span style={{ width: 9, height: 9, borderRadius: 9, background: "var(--red)" }} /> Kritikal</span>
+            <span className="flex items-center gap-1"><span style={{ width: 9, height: 9, borderRadius: 9, background: "var(--orange)" }} /> Tinggi</span>
+            <span className="flex items-center gap-1"><span style={{ width: 9, height: 9, borderRadius: 9, background: "var(--yellow)" }} /> Sederhana</span>
+            <span className="flex items-center gap-1"><span style={{ width: 9, height: 9, borderRadius: 9, background: "var(--green)" }} /> Tiada kes</span>
+          </div>
+          <div style={{ height: 240 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <ScatterChart margin={{ left: 0, right: 10, top: 10 }}>
+                <CartesianGrid stroke="#EDF2F8" />
+                <XAxis type="number" dataKey="x" name="Beban kes" />
+                <YAxis type="number" dataKey="y" name="Kualiti data" />
+                <ZAxis type="number" dataKey="r" range={[60, 900]} />
+                <Tooltip cursor={{ strokeDasharray: "3 3" }} formatter={(v, n, p) => [p.payload.name, ""]} />
+                <Scatter data={bub} onClick={(e) => e && e.name && set("pegawai", e.name)}>
+                  {bub.map((b, i) => <Cell key={i} fill={b.color} opacity={f.pegawai === "Semua" || f.pegawai === b.name ? .85 : .25} />)}
+                </Scatter>
+              </ScatterChart>
+            </ResponsiveContainer>
+          </div>
+        </Card>
+
+        <Card className="p-4 lg:col-span-2">
+          <div className="text-[13px] font-bold mb-3" style={{ color: NAVY }}>AKTA × KUMPULAN UMUR <span className="text-[11px] font-normal" style={{ color: "var(--muted)" }}>(% dalam setiap akta)</span></div>
+          <div className="overflow-auto">
+            <table className="w-full text-[12px]" style={{ borderCollapse: "collapse" }}>
+              <thead>
+                <tr>
+                  <th className="text-left p-2" style={{ color: "var(--muted)", fontWeight: 600 }}>AKTA</th>
+                  {heat.cols.map((c) => <th key={c} className="p-2 text-center" style={{ color: "var(--muted)", fontWeight: 600 }}>{c}</th>)}
+                </tr>
+              </thead>
+              <tbody>
+                {heat.rows.map((row, ri) => (
+                  <tr key={row}>
+                    <td className="p-2 font-semibold" style={{ color: NAVY }}>{row}</td>
+                    {heat.values[ri].map((v, ci) => (
+                      <td key={ci} className="p-1">
+                        <div className="heat-cell rounded-md text-center py-4 font-bold text-white"
+                          style={{ background: heatColor(v), color: v > (hmax + hmin) / 2 ? "#fff" : NAVY }}
+                          onClick={() => set("akta", row)}>
+                          {v}%
+                        </div>
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+/* ========================================================================== */
+/*  SECTION 6 — TREND & PETA                                                  */
+/* ========================================================================== */
+function TrendMapSection({ f, set }) {
+  const m = REMAN_DATA.monthlyReman;
+  const data = useMemo(() => {
+    let pts = REMAN_DATA.originMap;
+    if (f.warganegara !== "Semua") pts = pts.filter((p) => p.name === f.warganegara);
+    if (f.akta !== "Semua") pts = pts.filter((p) => p.akta === f.akta);
+    return pts.length ? pts : REMAN_DATA.originMap;
+  }, [f.warganegara, f.akta]);
+
+  return (
+    <div className="mb-6">
+      <SectionLabel>TREND &amp; PETA</SectionLabel>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Card className="p-4">
+          <div className="text-[13px] font-bold mb-1" style={{ color: NAVY }}>TREND REMAN BAHARU DAN LANJUTAN MENGIKUT BULAN</div>
+          <div className="flex items-center gap-3 text-[11px] mb-1" style={{ color: "var(--muted)" }}>
+            <span className="flex items-center gap-1"><span style={{ width: 10, height: 10, background: NAVY, borderRadius: 2 }} /> Reman baharu</span>
+            <span className="flex items-center gap-1"><span style={{ width: 10, height: 10, background: "var(--cyan)", borderRadius: 2 }} /> Reman &gt;14 hari</span>
+          </div>
+          <div style={{ height: 300 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={m.labels.map((l, i) => ({ label: l, baharu: m.baharu[i], lanjutan: m.lanjutan[i] }))} margin={{ left: 0, right: 10 }}>
+                <CartesianGrid stroke="#EDF2F8" vertical={false} />
+                <XAxis dataKey="label" />
+                <YAxis />
+                <Tooltip />
+                <Bar dataKey="baharu" name="Reman baharu" stackId="a" fill={NAVY} />
+                <Bar dataKey="lanjutan" name="Reman >14 hari" stackId="a" fill="#35B6C9" radius={[3, 3, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </Card>
+
+        <Card className="p-4">
+          <div className="text-[13px] font-bold mb-1" style={{ color: NAVY }}>PETA ASAL WARGANEGARA → JIM SABAH</div>
+          <div className="text-[11.5px] mb-2" style={{ color: "var(--muted)" }}>Saiz bulatan = bilangan · warna = akta dominan · garisan = aliran ke JIM Sabah</div>
+          <MapBox data={data} onPick={(name) => set("warganegara", name)} />
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+function MapBox({ data, onPick }) {
+  const ref = useRef();
+  const mapRef = useRef();
+  useEffect(() => {
+    if (!mapRef.current) {
+      const map = L.map(ref.current, { scrollWheelZoom: false, worldCopyJump: true }).setView([10, 116], 4);
+      L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
+        attribution: "&copy; OpenStreetMap &copy; CARTO", subdomains: "abcd", maxZoom: 19,
+      }).addTo(map);
+      mapRef.current = map;
+    }
+    const map = mapRef.current;
+    if (map._grp) map.removeLayer(map._grp);
+    const grp = L.layerGroup().addTo(map);
+    map._grp = grp;
+    const jm = REMAN_DATA.jimSabah;
+    data.forEach((d) => {
+      L.polyline([[d.lat, d.lng], [jm.lat, jm.lng]], { color: d.color, weight: 1.2, opacity: .55, dashArray: "5 5" }).addTo(grp);
+      L.circleMarker([d.lat, d.lng], {
+        radius: Math.max(5, Math.sqrt(d.count) / 1.15), color: "#fff", weight: 1.2,
+        fillColor: d.color, fillOpacity: .85,
+      }).bindTooltip(`${d.name}: ${d.count.toLocaleString("en-MY")} · ${d.akta}`)
+        .on("click", () => onPick && onPick(d.name)).addTo(grp);
+    });
+    L.marker([jm.lat, jm.lng], { icon: L.divIcon({ className: "jim-star", html: "★", iconSize: [22, 22] }) })
+      .bindTooltip(jm.name).addTo(grp);
+  }, [data]);
+  return <div ref={ref} style={{ height: 330, borderRadius: 14, overflow: "hidden", border: "1px solid var(--line)" }} />;
+}
+
+/* ========================================================================== */
+/*  DEVIN — AI Assistant (floating)                                           */
+/* ========================================================================== */
+function Devin() {
+  const [open, setOpen] = useState(false);
+  const [msgs, setMsgs] = useState([]);
+  const [input, setInput] = useState("");
+  const D = REMAN_DATA;
+  const GREET = [
+    "Hai, saya Devin 👋 Pegawai Imigresen. Tanya saya pasal data reman JIM Sabah.",
+    "Selamat datang! Saya Devin. Nak tahu jumlah reman, warganegara atau kadar usir?",
+    "Hello! Saya Devin. Tanya je, saya tolong kirakan.",
+  ];
+  useEffect(() => { setMsgs([{ from: "devin", text: GREET[Math.floor(Math.random() * GREET.length)] }]); }, []);
+  const answer = (raw) => {
+    const q = raw.toLowerCase();
+    if (/set\s*semula|reset/.test(q)) return "Konteks telah diset semula. Tanya saya tentang data reman.";
+    if (/filipina/.test(q)) return `Warganegara Filipina: <b>${money(1727)}</b> kes (82% daripada jumlah reman).`;
+    if (/indonesia/.test(q)) return `Warganegara Indonesia: <b>${money(332)}</b> kes.`;
+    if (/usir/.test(q)) return `Kadar peratus Usir: <b>${D.kpi.usirRate}%</b> (naik +${D.kpi.usirDelta}% dari Oktober).`;
+    if (/14/.test(q)) return `Reman melebihi 14 hari: <b>${money(D.kpi.over14)}</b> kes.`;
+    if (/(jumlah|semua|keseluruhan|berapa orang)/.test(q)) return `Jumlah reman keseluruhan: <b>${money(D.kpi.totalReman)}</b> kes.`;
+    if (/dikk|kota kinabalu/.test(q)) return `Depot DIKK (Kota Kinabalu) — sila lihat trend reman mengikut depot.`;
+    if (/dip|papar/.test(q)) return `Depot DIP (Papar) — sila lihat trend reman mengikut depot.`;
+    if (/risiko/.test(q)) return `Kes terbuka: 7 Paling Tinggi, 1 Tinggi, 75 Sederhana, 24 Rendah.`;
+    return "Saya hanya boleh jawab ikut data dalam dashboard ni. Cuba: \u201cberapa jumlah reman?\u201d, \u201cberapa Filipina?\u201d, \u201ckadar usir?\u201d";
+  };
+  const send = (text) => {
+    const t = String(text != null ? text : input).trim();
+    if (!t) return;
+    setMsgs((m) => [...m, { from: "user", text: t }]);
+    setInput("");
+    setTimeout(() => setMsgs((m) => [...m, { from: "devin", text: answer(t) }]), 320);
+  };
+  return (
+    <>
+      {open && (
+        <div className="fixed bottom-4 right-4 z-50 flex flex-col items-end" style={{ width: 360, maxWidth: "calc(100vw - 24px)" }}>
+          <div className="w-full bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col" style={{ height: 520, border: "1px solid var(--line)" }}>
+            <div className="flex items-center gap-3 p-3 text-white" style={{ background: "linear-gradient(120deg,#0B2C4A,#163E63)" }}>
+              <img src="devin.png" alt="Devin" className="w-12 h-12 rounded-full object-cover object-top border-2 border-white" />
+              <div className="min-w-0">
+                <p className="font-bold leading-none flex items-center gap-2">Devin <span style={{ width: 7, height: 7, background: "#57c08a", borderRadius: 9, display: "inline-block" }} /></p>
+                <p className="text-[11px] opacity-80 mt-1">Pegawai Imigresen • Online</p>
+              </div>
+              <button className="ml-auto text-[20px] opacity-80 hover:opacity-100" onClick={() => setOpen(false)}>×</button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-3 space-y-2" style={{ background: "#F7F9FC" }}>
+              {msgs.map((m, i) => (
+                <div key={i} className={"flex " + (m.from === "user" ? "justify-end" : "justify-start")}>
+                  {m.from === "devin" && <img src="devin.png" className="w-7 h-7 rounded-full object-cover object-top mr-2 self-end" />}
+                  <div className={"max-w-[80%] px-3 py-2 rounded-2xl text-[12.5px] leading-relaxed " +
+                    (m.from === "user" ? "text-white" : "bg-white shadow")}
+                    style={m.from === "user" ? { background: "#0B2C4A" } : { color: "#33445A", border: "1px solid var(--line)" }}
+                    dangerouslySetInnerHTML={{ __html: m.text }} />
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-2 p-2 border-t" style={{ borderColor: "var(--line)" }}>
+              <input value={input} onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && send()}
+                placeholder="Tanya Devin..." className="flex-1 text-[12.5px] rounded-full border px-3 py-2 outline-none"
+                style={{ borderColor: "var(--line)" }} />
+              <button onClick={() => send()} className="text-white text-[12.5px] font-semibold px-4 rounded-full" style={{ background: "#0B2C4A" }}>Hantar</button>
+            </div>
+          </div>
+        </div>
+      )}
+      <button onClick={() => setOpen(!open)}
+        className="fixed bottom-4 right-4 z-40 rounded-full overflow-hidden shadow-2xl"
+        style={{ width: 80, height: 80, border: "4px solid #fff", background: "#fff", display: open ? "none" : "block" }}
+        title="Chat dengan Devin">
+        <img src="devin.png" alt="Devin" className="w-full h-full object-cover object-top" />
+      </button>
+    </>
+  );
+}
+
+/* ========================================================================== */
+/*  APP                                                                       */
+/* ========================================================================== */
+function App() {
+  const EMPTY = { depot: "Semua", warganegara: "Semua", akta: "Semua", keseriusan: "Semua", pegawai: "Semua", tindakan: "Semua" };
+  const [f, setF] = useState(EMPTY);
+  const set = (k, v, replace) => setF((prev) => (replace ? { ...prev, [k]: v } : { ...prev, [k]: prev[k] === v ? "Semua" : v }));
+  const reset = () => setF({ ...EMPTY });
+  const activeCount = Object.values(f).filter((v) => v !== "Semua").length;
+
+  return (
+    <div>
+      <Header />
+      <Filters f={f} set={set} reset={reset} />
+      {activeCount > 0 && (
+        <div className="flex flex-wrap items-center gap-2 mb-4 text-[11.5px]">
+          <span style={{ color: "var(--muted)" }}>Penapis aktif:</span>
+          {Object.entries(f).filter(([, v]) => v !== "Semua").map(([k, v]) => (
+            <button key={k} onClick={() => set(k, v)} className="px-3 py-1 rounded-full font-semibold text-white flex items-center gap-1" style={{ background: NAVY }}>
+              {k}: {v} <span style={{ opacity: .8 }}>✕</span>
+            </button>
+          ))}
+        </div>
+      )}
+      <KpiRow f={f} set={set} />
+      <ProfileSection />
+      <KesalahanSection f={f} set={set} />
+      <TindakanSection f={f} set={set} />
+      <TrendMapSection f={f} set={set} />
+      <div className="text-center text-[11px] mb-2" style={{ color: "var(--muted)" }}>
+        Dashboard Reman JIM Sabah · data contoh (dummy) · ganti dalam <code>data.js</code>
+      </div>
+      <Devin />
+    </div>
+  );
+}
+
+function titleCase(s) { return s.charAt(0) + s.slice(1).toLowerCase(); }
+function shade(hex) {
+  // gelapkan sedikit untuk sel bangsa
+  const n = parseInt(hex.slice(1), 16);
+  const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  const f = 0.82;
+  return `rgb(${Math.round(r * f + 255 * (1 - f) * 0.15)},${Math.round(g * f + 255 * (1 - f) * 0.15)},${Math.round(b * f + 255 * (1 - f) * 0.15)})`;
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+<script>
+(function () {
+  var src = document.getElementById("appsrc").textContent;
+  var out = Babel.transform(src, { presets: [["react", { runtime: "classic" }]] }).code;
+  var s = document.createElement("script");
+  s.textContent = out;
+  document.body.appendChild(s);
+})();
+</script>
+</body>
+</html>
