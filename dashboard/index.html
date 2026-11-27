@@ -776,7 +776,7 @@ function App() {
         <TrendMapSection f={f} set={set} range={range} />
 
         <div className="text-center text-[11px] mb-2" style={{ color: "var(--muted)" }}>
-          Dashboard Reman JIM Sabah · data contoh (dummy) · ganti dalam <code>data.js</code>
+          Dashboard Reman JIM Sabah · {REMAN_DATA.meta.dummy ? "data contoh (dummy)" : "data sebenar · data/iringkawal_bpk2026.xlsx"} · jana semula: <code>python dashboard/build_data.py</code>
         </div>
       </div>
 
