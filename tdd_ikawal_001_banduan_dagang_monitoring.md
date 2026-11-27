@@ -1,241 +1,244 @@
-# Technical Design Document (TDD): IKAWAL / SmartDepot — Banduan Dagang Monitoring and Decision Support
+# Dokumen Reka Bentuk Teknikal (TDD): IKAWAL / SmartDepot — Pemantauan dan Sokongan Keputusan Banduan Dagang
 
-| Field | Details |
+| Medan | Butiran |
 | :--- | :--- |
-| **Document ID** | `TDD-IKAWAL-001` |
-| **Status** | Draft for review |
-| **Document type** | Technical Design Document — this TDD describes **how** the system is built; it is **not** Test-Driven Development. |
-| **Linked PRD** | `PRD-IKAWAL-001` — *Pengurusan Data Tahanan & Reman BPK 2026* (implied by `Ikawal_usecase_pipeline_v3.html`) |
-| **Tutorial reference** | `Spec-Driven Development for Immigration Systems.pdf` / `.pptx` and `tdd_imm_001_digital_arrival_border_clearance.md` |
-| **Owners** | Systems Engineering; BPK Immigration Operations |
-| **Reviewers** | Policy Lead, Security, Data Owner (BPK), Airport/Depot Operations, Records Management |
-| **Scope** | Whole programme: `main` plus every use-case branch (`IKAWAL-UC2`, `UC4`). `UC-1`, `UC-3` status recorded. |
-| **Last updated** | 2026-11-27 |
+| **ID Dokumen** | `TDD-IKAWAL-001` |
+| **Status** | Draf untuk semakan |
+| **Jenis dokumen** | Dokumen Reka Bentuk Teknikal — TDD ini menerangkan **bagaimana** sistem dibina; ia **bukan** Test-Driven Development. |
+| **PRD berkaitan** | `PRD-IKAWAL-001` — *Pengurusan Data Tahanan & Reman BPK 2026* (dijangka daripada `Ikawal_usecase_pipeline_v3.html`) |
+| **Rujukan tutorial** | `Spec-Driven Development for Immigration Systems.pdf` / `.pptx` dan `tdd_imm_001_digital_arrival_border_clearance.md` |
+| **Pemilik** | Kejuruteraan Sistem; Operasi Imigresen BPK |
+| **Penyemak** | Ketua Dasar, Keselamatan, Pemilik Data (BPK), Operasi Depot, Pengurusan Rekod |
+| **Skop** | Seluruh program: `main` serta setiap cabang kes penggunaan (`IKAWAL-UC2`, `UC4`). Status `UC-1` dan `UC-3` direkodkan. |
+| **Kemas kini terakhir** | 2026-11-27 |
 
-## 1. Purpose and design principles
+## 1. Tujuan dan prinsip reka bentuk
 
-This document is the implementation contract for the IKAWAL programme. It describes the current
-bridge between the approved use-case design (`Ikawal_usecase_pipeline_v3.html`) and the code that
-exists on each branch: the Flask dashboard on `main`, the UC-2 decision-support service on
-`IKAWAL-UC2`, and the UC-4 monthly report generator on `UC4`.
+Dokumen ini ialah kontrak pelaksanaan bagi program IKAWAL. Ia menerangkan jambatan semasa antara reka
+bentuk kes penggunaan yang diluluskan (`Ikawal_usecase_pipeline_v3.html`) dengan kod yang wujud pada
+setiap cabang: papan pemuka Flask pada `main`, perkhidmatan sokongan keputusan UC-2 pada `IKAWAL-UC2`,
+dan penjana laporan bulanan UC-4 pada `UC4`.
 
-It follows the tutorial's spec-driven sequence:
+Ia mengikut jujukan dipacu spesifikasi tutorial:
 
-1. **Define** the policy and measurable outcome in the PRD.
-2. **Design** architecture, sequence, data model, and API contract here.
-3. **Agree** edge cases, security controls, and fallback behaviour with officers and reviewers.
-4. **Build** only against the reviewed and versioned contract.
+1. **Takrif (Define)** dasar dan hasil yang boleh diukur dalam PRD.
+2. **Reka (Design)** seni bina, jujukan, model data dan kontrak API di sini.
+3. **Setuju (Agree)** kes tepi, kawalan keselamatan dan tingkah laku ganti dengan pegawai dan penyemak.
+4. **Bina (Build)** hanya terhadap kontrak yang telah disemak dan diversikan.
 
-Design principles:
+Prinsip reka bentuk:
 
-- **One record, one truth:** the reman register (`records`) is the single source; dashboards,
-  decision support, reports and exports all read from it.
-- **Minimise exposure:** only the fields an officer needs are shown or returned; detainee names are
-  masked and `catatan` never leaves the server for model or export paths.
-- **Make decisions traceable:** every write and every generated report is recorded in the `audit`
-  trail; UC-4 separates `draft` from `released`.
-- **Keep policy separate from transport:** outcomes are explicit `status` / reason codes, not inferred
-  from HTTP status alone.
-- **Prefer deterministic, reviewable behaviour:** UC-2 scoring is rules, not a model; UC-4 narratives
-  fall back to a deterministic template and every number is traced back to the KPI snapshot.
-- **Minimal runtime surface per branch:** the UC-2 service adds **no** runtime dependency beyond the
-  PCAI starter (standard-library `.xlsx`/PDF writers).
+- **Satu rekod, satu kebenaran:** daftar reman (`records`) ialah sumber tunggal; papan pemuka,
+  sokongan keputusan, laporan dan eksport semuanya membacanya.
+- **Kurangkan pendedahan:** hanya medan yang diperlukan pegawai dipaparkan atau dikembalikan; nama
+  tahanan ditopeng dan `catatan` tidak pernah meninggalkan pelayan bagi laluan model atau eksport.
+- **Jadikan keputusan boleh dijejaki:** setiap tulisan dan setiap laporan yang dijana direkodkan dalam
+  jejak `audit`; UC-4 memisahkan `draft` daripada `released`.
+- **Asingkan dasar daripada pengangkutan:** hasil diwakili oleh kod `status` / sebab yang eksplisit,
+  bukan disimpulkan daripada status HTTP semata-mata.
+- **Utamakan tingkah laku deterministik yang boleh disemak:** skor UC-2 ialah peraturan, bukan model;
+  naratif UC-4 jatuh balik kepada templat deterministik dan setiap angka dijejaki kembali ke petikan KPI.
+- **Permukaan runtime minimum bagi setiap cabang:** perkhidmatan UC-2 tidak menambah **sebarang**
+  kebergantungan runtime melebihi permulaan PCAI (penulis `.xlsx`/PDF daripada pustaka piawai).
 
-## 2. Scope and requirements
+## 2. Skop dan keperluan
 
-### 2.1 Programme objective
+### 2.1 Objektif program
 
-Give BPK officers and supervisors one dependable view of foreign detainees under remand (*banduan
-dagang*), automatically flag which cases need action, forecast depot pressure, and produce the monthly
-report — while keeping personal data masked and every action auditable.
+Memberi pegawai dan penyelia BPK satu pandangan yang boleh dipercayai tentang tahanan asing di bawah
+reman (*banduan dagang*), menandakan secara automatik kes yang perlu tindakan, meramal tekanan depot,
+dan menghasilkan laporan bulanan — sambil mengekalkan data peribadi ditopeng dan setiap tindakan boleh
+diaudit.
 
-### 2.2 Use cases, branch and implementation status
+### 2.2 Kes penggunaan, cabang dan status pelaksanaan
 
-| Use case | Design reference | Branch | Stack | Status |
+| Kes penggunaan | Rujukan reka bentuk | Cabang | Teknologi | Status |
 | :--- | :--- | :--- | :--- | :--- |
-| **UC-1** Interactive Monitoring Dashboard (+ data entry) | `Ikawal_usecase_pipeline_v3.html` §5 UC-1 | `main` | Flask + SQLite + template UI + standalone HTML apps | Implemented (no automated tests) |
-| **UC-2** Case Decision Support (reman countdown + risk scoring + recommended action) | §5 UC-2, §6 pipeline | `IKAWAL-UC2` | FastAPI (PCAI starter) + standard-library xlsx/pdf | Implemented + tested |
-| **UC-3** AI Depot Population Forecasting | §5 UC-3 | *(none)* | — | **Not implemented.** Only a UC-2/UC-3 adapter stub exists in UC-4 |
-| **UC-4** AI Insight & Automated Report Generator | §5 UC-4 | `UC4` | Flask blueprint + SQLite + LLM (optional) | Implemented + tested |
+| **UC-1** Papan Pemuka Pemantauan Interaktif (+ kemasukan data) | `Ikawal_usecase_pipeline_v3.html` §5 UC-1 | `main` | Flask + SQLite + UI templat + aplikasi HTML berdiri sendiri | Dilaksanakan (tiada ujian automatik) |
+| **UC-2** Sokongan Keputusan Kes (kiraan detik reman + skor risiko + tindakan disyorkan) | §5 UC-2, §6 saluran | `IKAWAL-UC2` | FastAPI (permulaan PCAI) + pustaka piawai xlsx/pdf | Dilaksanakan + diuji |
+| **UC-3** Peramalan Populasi Depot AI | §5 UC-3 | *(tiada)* | — | **Tidak dilaksanakan.** Hanya rangka penyesuai UC-2/UC-3 dalam UC-4 |
+| **UC-4** Penjana Insight & Laporan Automatik AI | §5 UC-4 | `UC4` | Blueprint Flask + SQLite + LLM (pilihan) | Dilaksanakan + diuji |
 
-### 2.3 Product requirements → design response
+### 2.3 Keperluan produk → respons reka bentuk
 
-| Requirement (PRD) | Design response | Acceptance measure |
+| Keperluan (PRD) | Respons reka bentuk | Ukuran penerimaan |
 | :--- | :--- | :--- |
-| Replace the hand-kept Excel register | `records` table seeded from `data/iringkawal_bpk2026.xlsx` with auto-clean | First run imports the bundled workbook and reports the row count |
-| See the picture without manual counting | Server dashboard (`templates/index.html`) + `/api/data` aggregates | KPI cards and charts match the dataset |
-| Identify cases needing action first | UC-2 countdown + risk score + recommended action | Priority worklist sorted by score; every ranked case has reasons |
-| Keep personal data out of the way | Masking, `catatan` excluded from model/export; PII guard in UC-4 | Exports and LLM prompts contain no raw name/`catatan` (verified by tests) |
-| Produce the monthly report reliably | UC-4 KPI snapshot → narrative → PDF/XLSX, `draft` then `released` | Numbers trace to the snapshot; analyst release required |
-| Work offline / in-cluster | UC-2 runs on the PCAI starter; standalone HTML apps work with no server | `app.html`, `sistem_tahanan.html`, `reman35_contoh.html` open directly |
+| Ganti daftar Excel yang dijaga tangan | Jadual `records` disemai daripada `data/iringkawal_bpk2026.xlsx` dengan pembersihan automatik | Larian pertama mengimport buku kerja terbina dan melaporkan bilangan baris |
+| Lihat gambaran tanpa kiraan manual | Papan pemuka pelayan (`templates/index.html`) + agregat `/api/data` | Kad KPI dan carta sepadan dengan set data |
+| Kenal pasti kes yang perlu tindakan dahulu | Kiraan detik UC-2 + skor risiko + tindakan disyorkan | Senarai keutamaan disusun mengikut skor; setiap kes ada sebab |
+| Jauhkan data peribadi | Penopengan, `catatan` dikecualikan daripada model/eksport; pengawal PII dalam UC-4 | Eksport dan gesaan LLM tiada nama mentah/`catatan` (disahkan oleh ujian) |
+| Hasilkan laporan bulanan dengan pasti | Petikan KPI UC-4 → naratif → PDF/XLSX, `draft` kemudian `released` | Angka dijejaki ke petikan; pelancaran oleh penganalisis diperlukan |
+| Berfungsi luar talian / dalam kluster | UC-2 berjalan pada permulaan PCAI; aplikasi HTML berdiri sendiri berfungsi tanpa pelayan | `app.html`, `sistem_tahanan.html`, `reman35_contoh.html` dibuka terus |
 
-### 2.4 In scope
+### 2.4 Dalam skop
 
-- UC-1 dashboard, records CRUD, Excel/CSV import with auto-clean, Excel/PDF export, audit log, roles.
-- Standalone offline HTML dashboards built from `src/` templates.
-- UC-2 read-only decision support over the register, plus Excel/PDF/CSV export of the worklist.
-- UC-4 monthly KPI snapshot, LLM/fallback narrative, draft/release workflow, PDF/XLSX export.
+- Papan pemuka UC-1, CRUD rekod, import Excel/CSV dengan pembersihan automatik, eksport Excel/PDF, log audit, peranan.
+- Papan pemuka HTML berdiri sendiri untuk luar talian yang dibina daripada templat `src/`.
+- Sokongan keputusan UC-2 baca-sahaja ke atas daftar, serta eksport Excel/PDF/CSV bagi senarai keutamaan.
+- Petikan KPI bulanan UC-4, naratif LLM/ganti, aliran kerja draf/pelancaran, eksport PDF/XLSX.
 
-### 2.5 Out of scope
+### 2.5 Di luar skop
 
-- UC-3 forecasting (no branch); biometrics; e-Gate integration; visa processing.
-- Authentication federation with a central IdP for `main` (local password roles only); UC-2 relies on
-  the PCAI oauth2-proxy pattern (not exercised locally).
-- Live cluster deployment for any branch (artifacts exist for UC-2 only).
+- Peramalan UC-3 (tiada cabang); biometrik; integrasi e-Gate; pemprosesan visa.
+- Persekutuan pengesahan identiti dengan IdP pusat untuk `main` (peranan kata laluan tempatan sahaja);
+  UC-2 bergantung pada corak oauth2-proxy PCAI (tidak diuji secara tempatan).
+- Pelaksanaan kluster sebenar bagi mana-mana cabang (artifak wujud untuk UC-2 sahaja).
 
-## 3. Actors, assumptions, and terminology
+## 3. Pelaku, andaian dan istilah
 
-### 3.1 Actors
+### 3.1 Pelaku
 
-| Actor | Responsibility |
+| Pelaku | Tanggungjawab |
 | :--- | :--- |
-| Staff Iringkawal (`staff`) | Upload/import, add, edit, delete records, export, run UC-2 read, generate UC-4. |
-| Penyelia (`penyelia`) | Edit and export; view UC-2 and UC-4; no delete/upload. |
-| Boss (`boss`) | View and export only. |
-| BPK Data Owner | Confirms new fields, code lists, retention. |
-| Investigating officer (`pegawai`) | Named owner of a case; receives the UC-2 worklist item. |
-| LLM (LiteLLM) | Optional UC-2 chat replies and UC-4 narrative; never authoritative. |
+| Staff Iringkawal (`staff`) | Muat naik/import, tambah, sunting, padam rekod, eksport, baca UC-2, jana UC-4. |
+| Penyelia (`penyelia`) | Sunting dan eksport; lihat UC-2 dan UC-4; tiada padam/muat naik. |
+| Boss (`boss`) | Lihat dan eksport sahaja. |
+| Pemilik Data BPK | Sahkan medan baharu, senarai kod, pengekalan. |
+| Pegawai penyiasat (`pegawai`) | Pemilik bernama bagi sesuatu kes; menerima item senarai keutamaan UC-2. |
+| LLM (LiteLLM) | Balasan sembang UC-2 dan naratif UC-4 (pilihan); tidak pernah berautoriti. |
 
-### 3.2 Assumptions requiring confirmation
+### 3.2 Andaian yang perlu disahkan
 
-- Data is **dummy/derived** for the workshop; real personal data handling and retention need sign-off.
-- The canonical register is `data/iringkawal_bpk2026.xlsx` (2,199 rows × 15 columns). UC-2 also
-  accepts the 14-column `start–end` shape.
-- UC-4's LLM endpoint is optional; determinism is required when unavailable.
-- `main` runs on `127.0.0.1:5000`; UC-2 on `127.0.0.1:8000`.
+- Data bersifat **dummy/terbitan** untuk bengkel; pengendalian data peribadi sebenar dan pengekalan
+  memerlukan kelulusan.
+- Daftar kanonik ialah `data/iringkawal_bpk2026.xlsx` (2,199 baris × 15 lajur). UC-2 juga menerima
+  bentuk 14 lajur `mula–tamat`.
+- Titik hujung LLM UC-4 adalah pilihan; sifat deterministik diperlukan apabila ia tidak tersedia.
+- `main` berjalan pada `127.0.0.1:5000`; UC-2 pada `127.0.0.1:8000`.
 
-### 3.3 Terminology
+### 3.3 Istilah
 
-- **Reman** — remand period. **Banduan dagang** — foreign detainee. **Depot** — DIKK / DIP.
-- **TDD** in this document = Technical Design Document.
+- **Reman** — tempoh tahanan reman. **Banduan dagang** — tahanan asing. **Depot** — DIKK / DIP.
+- **TDD** dalam dokumen ini = Dokumen Reka Bentuk Teknikal.
 
-## 4. High-level architecture
+## 4. Seni bina peringkat tinggi
 
-Three independently runnable deliverables share one dataset and one audit store (where a database
-exists).
+Tiga hasil yang boleh dijalankan secara berasingan berkongsi satu set data dan satu stor audit (di mana
+pangkalan data wujud).
 
 ```mermaid
 flowchart LR
     subgraph UC1["UC-1 · main (Flask)"]
-        B[Browser / stand-alone HTML] -->|HTTPS| F[app.py Flask + SQLite]
+        B[Pelayar / HTML berdiri sendiri] -->|HTTPS| F[app.py Flask + SQLite]
         F --> DB[(records, audit)]
-        F --> IMP[Excel/CSV import + auto-clean]
-        F --> EXP[Excel / PDF export]
+        F --> IMP[Import Excel/CSV + pembersihan automatik]
+        F --> EXP[Eksport Excel / PDF]
     end
     subgraph UC2["UC-2 · IKAWAL-UC2 (FastAPI · PCAI)"]
-        W[Browser worklist] -->|/api/uc2/*| P[app/main.py FastAPI]
-        P --> ENG[reman.py engine]
-        P --> REG[(data/iringkawal_bpk2026.xlsx read-only)]
-        P --> XW[xlsx.py + pdf.py writers]
-        P -->|tools| LLM[LiteLLM]
+        W[Pelayar senarai keutamaan] -->|/api/uc2/*| P[app/main.py FastAPI]
+        P --> ENG[enjin reman.py]
+        P --> REG[(data/iringkawal_bpk2026.xlsx baca-sahaja)]
+        P --> XW[penulis xlsx.py + pdf.py]
+        P -->|alat| LLM[LiteLLM]
     end
-    subgraph UC4["UC-4 · UC4 branch (Flask blueprint)"]
-        F --> KPI[uc4 KPI engine]
-        KPI --> NAR[narrative generator]
+    subgraph UC4["UC-4 · cabang UC4 (blueprint Flask)"]
+        F --> KPI[enjin KPI uc4]
+        KPI --> NAR[penjana naratif]
         NAR --> REP[(uc4_reports)]
-        REP --> RP[PDF / XLSX report]
+        REP --> RP[Laporan PDF / XLSX]
     end
-    REG -. same workbook .- IMP
+    REG -. buku kerja sama .- IMP
 ```
 
-| Component | Responsibility | Trust boundary |
+| Komponen | Tanggungjawab | Sempadan kepercayaan |
 | :--- | :--- | :--- |
-| `app.py` (Flask, `main` / `UC4`) | Session auth, records CRUD, import/clean, export, audit; hosts UC-4 blueprint | Core application; trusts session cookie. |
-| `templates/index.html` | Server-rendered dashboard consuming the JSON API | Controlled browser client. |
-| `app.html` / `sistem_tahanan.html` / `reman35_contoh.html` | Stand-alone dashboards (SheetJS, `localStorage` fallback) | Untrusted static client; no server session. |
-| `smartdepot/app/main.py` (FastAPI, `IKAWAL-UC2`) | UC-2 HTTP boundary, settings, size limits, identity | Core application; trusts proxy identity header in `proxy` mode. |
-| `smartdepot/app/reman.py` | Pure rule engine (countdown, score, label, action, masking) | Deterministic, no I/O. |
-| `smartdepot/app/{xlsx,pdf}.py` | Standard-library spreadsheet/PDF writers and reader | Pure functions. |
-| `uc4/` package | KPI snapshot, narrative, report store and export | Reads `records`, writes `uc4_reports` + `audit`. |
-| SQLite `ikawal.db` | `records`, `audit`, `uc4_reports` | Restricted data zone. |
-| LiteLLM gateway | Optional narrative/chat | External model boundary; never authoritative. |
+| `app.py` (Flask, `main` / `UC4`) | Pengesahan sesi, CRUD rekod, import/bersih, eksport, audit; menempatkan blueprint UC-4 | Aplikasi teras; mempercayai kuki sesi. |
+| `templates/index.html` | Papan pemuka paparan pelayan yang menggunakan API JSON | Klien pelayar terkawal. |
+| `app.html` / `sistem_tahanan.html` / `reman35_contoh.html` | Papan pemuka berdiri sendiri (SheetJS, ganti `localStorage`) | Klien statik tidak dipercayai; tiada sesi pelayan. |
+| `smartdepot/app/main.py` (FastAPI, `IKAWAL-UC2`) | Sempadan HTTP UC-2, tetapan, had saiz, identiti | Aplikasi teras; mempercayai pengepala identiti proksi dalam mod `proxy`. |
+| `smartdepot/app/reman.py` | Enjin peraturan tulen (kiraan detik, skor, label, tindakan, penopengan) | Deterministik, tiada I/O. |
+| `smartdepot/app/{xlsx,pdf}.py` | Penulis dan pembaca hamparan/PDF daripada pustaka piawai | Fungsi tulen. |
+| Pakej `uc4/` | Petikan KPI, naratif, stor laporan dan eksport | Membaca `records`, menulis `uc4_reports` + `audit`. |
+| SQLite `ikawal.db` | `records`, `audit`, `uc4_reports` | Zon data terhad. |
+| Gerbang LiteLLM | Naratif/sembang pilihan | Sempadan model luaran; tidak pernah berautoriti. |
 
-### 4.1 Request lifecycle (example: UC-2 worklist)
+### 4.1 Kitaran hayat permintaan (contoh: senarai keutamaan UC-2)
 
-1. Browser requests `GET /api/uc2/cases`.
-2. `app/main.py` resolves the register (`APP_REMAN_FILE` → `data/` → `app/data/` → `.local/` → repo `data/`).
-3. `store.load_cases` reads Sheet1 with the standard-library reader, maps headers, scores each row.
-4. Filters are applied, results sorted by score, then masked `to_public()` rows are returned.
-5. `app.js` renders the table with `textContent` only; exports reuse the same filter helper.
+1. Pelayar meminta `GET /api/uc2/cases`.
+2. `app/main.py` menyelesaikan lokasi daftar (`APP_REMAN_FILE` → `data/` → `app/data/` → `.local/` → `data/` repo).
+3. `store.load_cases` membaca Sheet1 dengan pembaca pustaka piawai, memetakan pengepala, menskor setiap baris.
+4. Tapisan digunakan, hasil disusun mengikut skor, kemudian baris `to_public()` yang ditopeng dikembalikan.
+5. `app.js` memaparkan jadual dengan `textContent` sahaja; eksport menggunakan pembantu tapisan yang sama.
 
-## 5. Primary and alternate interaction flows
+## 5. Aliran interaksi utama dan alternatif
 
-### 5.1 UC-1 — import and dashboard refresh
+### 5.1 UC-1 — import dan muat semula papan pemuka
 
 ```mermaid
 sequenceDiagram
     actor Staff
-    participant UI as Dashboard (index.html)
+    participant UI as Papan pemuka (index.html)
     participant API as app.py
-    participant CL as auto-clean
+    participant CL as pembersihan auto
     participant DB as records/audit
-    Staff->>UI: Upload Excel/CSV
+    Staff->>UI: Muat naik Excel/CSV
     UI->>API: POST /api/import
-    API->>CL: clean_rows (normalise, split, dedupe)
-    CL-->>API: records + report
-    API->>DB: upsert records, append audit
-    API-->>UI: summary
+    API->>CL: clean_rows (normalisasi, pecah, nyahduplikasi)
+    CL-->>API: rekod + laporan
+    API->>DB: upsert rekod, tambah audit
+    API-->>UI: ringkasan
     UI->>API: GET /api/data
-    API-->>UI: records + stats + charts
+    API-->>UI: rekod + statistik + carta
 ```
 
-### 5.2 UC-2 — decision support
+### 5.2 UC-2 — sokongan keputusan
 
 ```mermaid
 sequenceDiagram
-    actor Officer
-    participant UI as Worklist (app.js)
+    actor Pegawai
+    participant UI as Senarai keutamaan (app.js)
     participant API as /api/uc2/*
     participant ENG as reman.py
-    participant REG as register (xlsx)
-    Officer->>UI: Open app / change filter
-    UI->>API: GET /api/uc2/summary and /api/uc2/cases
-    API->>REG: read Sheet1
-    API->>ENG: build_case (period, countdown, score, label, action)
-    ENG-->>API: masked cases sorted by score
+    participant REG as daftar (xlsx)
+    Pegawai->>UI: Buka aplikasi / tukar tapisan
+    UI->>API: GET /api/uc2/summary dan /api/uc2/cases
+    API->>REG: baca Sheet1
+    API->>ENG: build_case (tempoh, kiraan detik, skor, label, tindakan)
+    ENG-->>API: kes ditopeng disusun mengikut skor
     API-->>UI: JSON
-    UI-->>Officer: Priority worklist
-    Officer->>UI: Export Excel / PDF
-    UI->>API: GET /api/uc2/export.(xlsx|pdf) + filters
-    API-->>Officer: attachment
+    UI-->>Pegawai: Senarai keutamaan
+    Pegawai->>UI: Eksport Excel / PDF
+    UI->>API: GET /api/uc2/export.(xlsx|pdf) + tapisan
+    API-->>Pegawai: lampiran
 ```
 
-### 5.3 UC-4 — monthly report
+### 5.3 UC-4 — laporan bulanan
 
 ```mermaid
 sequenceDiagram
-    actor Analyst
-    participant UI as /uc4 dashboard
-    participant BP as uc4 blueprint
-    participant KPI as phase1 engine
-    participant NAR as phase2 generator
+    actor Penganalisis
+    participant UI as papan pemuka /uc4
+    participant BP as blueprint uc4
+    participant KPI as enjin phase1
+    participant NAR as penjana phase2
     participant ST as uc4_reports
-    Analyst->>UI: Choose month, Generate
+    Penganalisis->>UI: Pilih bulan, Jana
     UI->>BP: POST /api/uc4/generate
-    BP->>KPI: build_monthly_kpi (privacy-guarded snapshot)
-    KPI-->>BP: KPIs + MoM
-    BP->>NAR: generate_narrative (LLM or deterministic)
-    NAR-->>BP: narrative + numeric trace
+    BP->>KPI: build_monthly_kpi (petikan berpengawal privasi)
+    KPI-->>BP: KPI + MoM
+    BP->>NAR: generate_narrative (LLM atau deterministik)
+    NAR-->>BP: naratif + jejak angka
     BP->>ST: save_report_draft (status=draft)
-    Analyst->>BP: PUT /api/uc4/narrative, POST /api/uc4/release
-    BP->>ST: update then status=released
+    Penganalisis->>BP: PUT /api/uc4/narrative, POST /api/uc4/release
+    BP->>ST: kemas kini kemudian status=released
 ```
 
-### 5.4 Alternate and failure flows
+### 5.4 Aliran alternatif dan kegagalan
 
-- **UC-2 register missing:** `/api/uc2/*` returns `503` with a Malay hint; the UI shows it and does not
-  crash. Invalid dates score `0` / label `tidak sah` and are listed under data-quality issues.
-- **UC-2 model unavailable:** chat returns a translated gateway error; the worklist and exports still
-  work (they never call the model).
-- **UC-1 no dataset:** the app seeds 12 sample records and logs a `Seed` audit event.
-- **UC-4 LLM unavailable:** `generate_narrative` falls back to the deterministic narrative.
+- **Daftar UC-2 tiada:** `/api/uc2/*` memulangkan `503` dengan petunjuk Bahasa Melayu; UI memaparkannya
+  dan tidak terhenti. Tarikh tidak sah mendapat skor `0` / label `tidak sah` dan disenaraikan dalam
+  isu kualiti data.
+- **Model UC-2 tidak tersedia:** sembang memulangkan ralat gerbang yang diterjemah; senarai keutamaan
+  dan eksport tetap berfungsi (ia tidak pernah memanggil model).
+- **UC-1 tiada set data:** aplikasi menyemai 12 rekod contoh dan merekod peristiwa audit `Seed`.
+- **LLM UC-4 tidak tersedia:** `generate_narrative` jatuh balik kepada naratif deterministik.
 
-## 6. Data model and database design
+## 6. Model data dan reka bentuk pangkalan data
 
 ```mermaid
 erDiagram
-    RECORDS ||--o{ AUDIT : "actions on"
-    RECORDS ||--o{ UC4_REPORTS : "aggregated into"
+    RECORDS ||--o{ AUDIT : "tindakan ke atas"
+    RECORDS ||--o{ UC4_REPORTS : "diagregatkan ke"
 
     RECORDS {
         text id PK
@@ -282,75 +285,78 @@ erDiagram
     }
 ```
 
-### 6.1 Data rules and constraints
+### 6.1 Peraturan dan kekangan data
 
-- `records.id` is a random `r` + 10 hex chars (no sequential guessing).
-- `nombor_reman` is the business key for duplicate detection (`dup_key`); batches group by `nombor_fail`.
-- Derived, not stored: `days_left`, `status_semasa`, `is_urgent`, `is_bebas`, `has_rayuan`.
-- `audit` is append-only from the application's perspective; `action` values include `Seed`, CRUD and
+- `records.id` ialah `r` rawak + 10 aksara hex (tiada tekaan berjujukan).
+- `nombor_reman` ialah kunci perniagaan untuk pengesanan duplikat (`dup_key`); kelompok dikumpulkan
+  mengikut `nombor_fail`.
+- Terbitan, bukan disimpan: `days_left`, `status_semasa`, `is_urgent`, `is_bebas`, `has_rayuan`.
+- `audit` adalah tambah-sahaja dari perspektif aplikasi; nilai `action` termasuk `Seed`, CRUD dan
   UC-4 `generate`/`release`.
-- `uc4_reports.status` is `draft` by default and set to `released` by the application (not a DB
-  constraint); editing the narrative resets it to `draft`. `month` is `YYYY-MM`.
-- UC-2 holds **no** database: the register workbook is read-only and cached by file mtime.
-- Personal data: `nama` is masked in UC-2/UC-4 outputs; `catatan` is excluded everywhere except the
-  officer-only UC-1 record view.
+- `uc4_reports.status` ialah `draft` secara lalai dan ditetapkan kepada `released` oleh aplikasi (bukan
+  kekangan pangkalan data); menyunting naratif menetapkannya semula kepada `draft`. `month` ialah `YYYY-MM`.
+- UC-2 tidak menyimpan **sebarang** pangkalan data: buku kerja daftar adalah baca-sahaja dan di-cache
+  mengikut masa ubah fail.
+- Data peribadi: `nama` ditopeng dalam output UC-2/UC-4; `catatan` dikecualikan di semua tempat kecuali
+  paparan rekod UC-1 untuk pegawai sahaja.
 
-### 6.2 Recommended indexes (SQLite)
+### 6.2 Indeks yang disyorkan (SQLite)
 
-| Table | Index | Purpose |
+| Jadual | Indeks | Tujuan |
 | :--- | :--- | :--- |
-| `records` | `nombor_reman` | Duplicate detection and lookups. |
-| `records` | `(depot, tarikh_tamat_reman)` | Dashboard and worklist filtering. |
-| `audit` | `(ts DESC)` | Audit review. |
-| `uc4_reports` | `month` (PK) | One report per month. |
+| `records` | `nombor_reman` | Pengesanan duplikat dan carian. |
+| `records` | `(depot, tarikh_tamat_reman)` | Tapisan papan pemuka dan senarai keutamaan. |
+| `audit` | `(ts DESC)` | Semakan audit. |
+| `uc4_reports` | `month` (PK) | Satu laporan bagi setiap bulan. |
 
-## 7. API contract
+## 7. Kontrak API
 
 ### 7.1 UC-1 / UC-4 — Flask (`main`, `UC4`)
 
-**Auth:** session cookie (`staff` / `penyelia` / `boss`). Server-rendered pages: `/`, `/login`, `/logout`,
-`/app`, `/app.html`.
+**Pengesahan:** kuki sesi (`staff` / `penyelia` / `boss`). Halaman paparan pelayan: `/`, `/login`,
+`/logout`, `/app`, `/app.html`.
 
-| Method | Path | Purpose | Min role |
+| Kaedah | Laluan | Tujuan | Peranan minimum |
 | :--- | :--- | :--- | :--- |
-| `GET` | `/api/me` | Session and role | any |
-| `GET` | `/api/data` | Records + stats + charts (`filter,q,officer,sort`) | any |
-| `POST` | `/api/records` | Create | staff |
-| `PUT/PATCH` | `/api/records/<id>` | Update | staff/penyelia |
-| `DELETE` | `/api/records/<id>` | Delete | staff |
-| `DELETE` | `/api/records` | Clear all | staff |
-| `POST` | `/api/sample` | Load 12 demo records | staff |
-| `POST` | `/api/import` | Upload Excel/CSV (`file`) | staff |
-| `GET` | `/api/export/xlsx` | Clean Excel download | any |
-| `GET` | `/api/export/pdf?period=` | Period PDF report | any |
-| `GET/POST/DELETE` | `/api/audit` | Audit log | staff |
+| `GET` | `/api/me` | Sesi dan peranan | mana-mana |
+| `GET` | `/api/data` | Rekod + statistik + carta (`filter,q,officer,sort`) | mana-mana |
+| `POST` | `/api/records` | Cipta | staff |
+| `PUT/PATCH` | `/api/records/<id>` | Kemas kini | staff/penyelia |
+| `DELETE` | `/api/records/<id>` | Padam | staff |
+| `DELETE` | `/api/records` | Kosongkan semua | staff |
+| `POST` | `/api/sample` | Muat 12 rekod demo | staff |
+| `POST` | `/api/import` | Muat naik Excel/CSV (`file`) | staff |
+| `GET` | `/api/export/xlsx` | Muat turun Excel bersih | mana-mana |
+| `GET` | `/api/export/pdf?period=` | Laporan PDF mengikut tempoh | mana-mana |
+| `GET/POST/DELETE` | `/api/audit` | Log audit | staff |
 
-**UC-4 blueprint** (`uc4/phase3_reports/blueprint.py`), same session auth:
+**Blueprint UC-4** (`uc4/phase3_reports/blueprint.py`), pengesahan sesi yang sama:
 
-| Method | Path | Purpose |
+| Kaedah | Laluan | Tujuan |
 | :--- | :--- | :--- |
-| `GET` | `/uc4` | Monthly report dashboard (HTML) |
-| `GET` | `/api/uc4/months` | Months available |
-| `GET` | `/api/uc4/report` | Saved or built report for a month |
-| `POST` | `/api/uc4/generate` | Build KPI + narrative, save draft |
-| `PUT` | `/api/uc4/narrative` | Edit narrative (resets to draft) |
-| `POST` | `/api/uc4/release` | Release the report |
-| `GET` | `/api/uc4/export/pdf`, `/api/uc4/export/xlsx` | Downloads |
+| `GET` | `/uc4` | Papan pemuka laporan bulanan (HTML) |
+| `GET` | `/api/uc4/months` | Bulan yang tersedia |
+| `GET` | `/api/uc4/report` | Laporan tersimpan atau terjana bagi sesuatu bulan |
+| `POST` | `/api/uc4/generate` | Jana KPI + naratif, simpan draf |
+| `PUT` | `/api/uc4/narrative` | Sunting naratif (set semula kepada draf) |
+| `POST` | `/api/uc4/release` | Luluskan laporan |
+| `GET` | `/api/uc4/export/pdf`, `/api/uc4/export/xlsx` | Muat turun |
 
 ### 7.2 UC-2 — FastAPI (`IKAWAL-UC2`)
 
-**Auth:** `local` (workshop) or `proxy` (PCAI oauth2-proxy, `x-forwarded-user`). Read-only; no writes.
+**Pengesahan:** `local` (bengkel) atau `proxy` (oauth2-proxy PCAI, `x-forwarded-user`). Baca-sahaja;
+tiada tulisan.
 
-| Method | Path | Purpose |
+| Kaedah | Laluan | Tujuan |
 | :--- | :--- | :--- |
-| `GET` | `/api/info` | Model, tool availability, identity |
-| `GET` | `/api/uc2/summary` | Counts by label/depot, overdue/due-today/invalid |
-| `GET` | `/api/uc2/cases` | Filtered worklist (`label,depot,officer,status,q,open,limit`) |
-| `GET` | `/api/uc2/case/{NO.REMAN}` | One masked case (+ duplicate count) |
-| `GET` | `/api/uc2/export.xlsx` / `.csv` / `.pdf` | Export the current filtered view |
-| `POST` | `/api/chat` | Bounded model loop with `reman_summary`, `list_priority_cases`, `get_case` |
+| `GET` | `/api/info` | Model, ketersediaan alat, identiti |
+| `GET` | `/api/uc2/summary` | Kiraan mengikut label/depot, tertunggak/tamat hari ini/tidak sah |
+| `GET` | `/api/uc2/cases` | Senarai keutamaan bertapis (`label,depot,officer,status,q,open,limit`) |
+| `GET` | `/api/uc2/case/{NO.REMAN}` | Satu kes ditopeng (+ bilangan duplikat) |
+| `GET` | `/api/uc2/export.xlsx` / `.csv` / `.pdf` | Eksport paparan semasa yang ditapis |
+| `POST` | `/api/chat` | Gelung model terbatas dengan `reman_summary`, `list_priority_cases`, `get_case` |
 
-Example — worklist case (masked; `catatan` absent):
+Contoh — kes senarai keutamaan (ditopeng; `catatan` tiada):
 
 ```json
 {
@@ -364,141 +370,146 @@ Example — worklist case (masked; `catatan` absent):
 }
 ```
 
-### 7.3 OpenAPI / Swagger requirement
+### 7.3 Keperluan OpenAPI / Swagger
 
-The tutorial requires a published OpenAPI 3.0 contract and Swagger UI before implementation. **Current
-gap:** neither `main` nor `UC-2` publishes OpenAPI; UC-2 has JSON endpoints without a schema document.
-Adding a versioned OpenAPI contract for `/api/uc2/*` is a required action (see §14).
+Tutorial memerlukan kontrak OpenAPI 3.0 yang diterbitkan dan Swagger UI sebelum pelaksanaan. **Jurang
+semasa:** sama ada `main` atau `UC-2` tidak menerbitkan OpenAPI; UC-2 mempunyai titik hujung JSON tanpa
+dokumen skema. Menambah kontrak OpenAPI berversi bagi `/api/uc2/*` ialah tindakan yang diperlukan
+(lihat §14).
 
-## 8. Decision and failure matrix
+## 8. Matriks keputusan dan kegagalan
 
-| Condition | Use case | Persisted effect | API result | Officer action |
+| Keadaan | Kes penggunaan | Kesan disimpan | Hasil API | Tindakan pegawai |
 | :--- | :--- | :--- | :--- | :--- |
-| Reman overdue/ends today, `tindakan` not final | UC-2 | none (read-only) | `200`, label ≥ Tinggi | Act today per recommended action |
-| Reman ends in 1–3 days, not final | UC-2 | none | `200`, +25 | Prepare within 48 h |
-| Invalid/blank reman end date | UC-2 | excluded from scoring | `200`, label `tidak sah` | Fix the record in UC-1 |
-| Register workbook absent | UC-2 | none | `503` (Malay hint) | Set `APP_REMAN_FILE` / place the file |
-| Unknown `NO.REMAN` | UC-2 | none | `404` | Check the reference |
-| LLM inaccessible (UC-2 chat / UC-4 narrative) | UC-2 / UC-4 | UC-4 saves draft | `502` / deterministic narrative | Retry or use the template |
-| Dataset absent on first run (UC-1) | UC-1 | 12 sample records + `Seed` audit | `200` | Upload the real register |
-| Import with duplicates | UC-1 | duplicates flagged, not silently merged | summary/report | Review flagged rows |
-| Narrative has a number not in the snapshot | UC-4 | draft blocked by numeric guard | validation error | Correct or regenerate |
+| Reman tertunggak/tamat hari ini, `tindakan` belum muktamad | UC-2 | tiada (baca-sahaja) | `200`, label ≥ Tinggi | Bertindak hari ini mengikut tindakan disyorkan |
+| Reman tamat dalam 1–3 hari, belum muktamad | UC-2 | tiada | `200`, +25 | Sedia dalam 48 jam |
+| Tarikh tamat reman tidak sah/kosong | UC-2 | dikecualikan daripada skor | `200`, label `tidak sah` | Betulkan rekod dalam UC-1 |
+| Buku kerja daftar tiada | UC-2 | tiada | `503` (petunjuk Bahasa Melayu) | Tetapkan `APP_REMAN_FILE` / letakkan fail |
+| `NO.REMAN` tidak dikenali | UC-2 | tiada | `404` | Semak rujukan |
+| LLM tidak dapat diakses (sembang UC-2 / naratif UC-4) | UC-2 / UC-4 | UC-4 menyimpan draf | `502` / naratif deterministik | Cuba lagi atau guna templat |
+| Set data tiada pada larian pertama (UC-1) | UC-1 | 12 rekod contoh + audit `Seed` | `200` | Muat naik daftar sebenar |
+| Import dengan duplikat | UC-1 | duplikat ditandakan, tidak digabung secara senyap | ringkasan/laporan | Semak baris yang ditandakan |
+| Naratif mempunyai angka yang tiada dalam petikan | UC-4 | draf disekat oleh pengawal angka | ralat pengesahan | Betulkan atau jana semula |
 
-## 9. Security, privacy, and audit
+## 9. Keselamatan, privasi dan audit
 
-### 9.1 Access control
+### 9.1 Kawalan akses
 
-- `main`/`UC4`: role-based capability map (`upload/add/edit/del/export`); server-side session; passwords
-  are Werkzeug hashes seeded from `IKAWAL_PW_*` env vars.
-- `UC-2`: in `proxy` mode requires `x-forwarded-user`; POSTs are origin-checked against the public URL;
-  the app service must stay private behind NetworkPolicy; the browser never receives the LiteLLM key.
+- `main`/`UC4`: peta keupayaan berasaskan peranan (`upload/add/edit/del/export`); sesi pihak pelayan;
+  kata laluan ialah hash Werkzeug yang disemai daripada pemboleh ubah persekitaran `IKAWAL_PW_*`.
+- `UC-2`: dalam mod `proxy` memerlukan `x-forwarded-user`; POST disemak asal terhadap URL awam;
+  perkhidmatan aplikasi mesti kekal peribadi di belakang NetworkPolicy; pelayar tidak pernah menerima
+  kunci LiteLLM.
 
-### 9.2 Data protection
+### 9.2 Perlindungan data
 
-- Masking: UC-2 masks `nama` (`M******* R**** …`); `catatan` is never returned or exported.
-- UC-4 `FORBIDDEN_PII_KEYS` guard (`nama, catatan, nombor_reman, nombor_fail, ic, passport`) blocks PII
-  from KPI snapshots and LLM prompts; `contains_forbidden_keys` raises before narrative generation.
-- Auditing: every write and every UC-4 generate/release appends to `audit`.
-- Secrets live in `.local/` (UC-2) and env vars (Flask); none are committed.
+- Penopengan: UC-2 menopeng `nama` (`M******* R**** …`); `catatan` tidak pernah dikembalikan atau dieksport.
+- Pengawal `FORBIDDEN_PII_KEYS` UC-4 (`nama, catatan, nombor_reman, nombor_fail, ic, passport`) menyekat
+  PII daripada petikan KPI dan gesaan LLM; `contains_forbidden_keys` membangkitkan ralat sebelum
+  penjanaan naratif.
+- Audit: setiap tulisan dan setiap jana/pelancaran UC-4 ditambah ke `audit`.
+- Rahsia disimpan dalam `.local/` (UC-2) dan pemboleh ubah persekitaran (Flask); tiada yang dikomit.
 
-### 9.3 Audit events
+### 9.3 Peristiwa audit
 
-| Event | Source | Required fields |
+| Peristiwa | Sumber | Medan diperlukan |
 | :--- | :--- | :--- |
-| `Seed` | UC-1 init | ts, user=system, action, detail |
+| `Seed` | Permulaan UC-1 | ts, user=system, action, detail |
 | add/edit/delete/import/export | UC-1 | ts, user, role, action, detail |
 | `UC-4 Jana Laporan` / `UC-4 Sunting Naratif` / `UC-4 Sahkan Laporan` / `UC-4 Eksport PDF` / `UC-4 Eksport XLSX` | UC-4 | ts, user, role, action, detail |
-| UC-2 tool use | UC-2 | recorded in the chat trace (`tools`) returned to the browser |
+| Penggunaan alat UC-2 | UC-2 | direkodkan dalam jejak sembang (`tools`) yang dikembalikan ke pelayar |
 
-Corrections are new events; existing audit rows are not overwritten.
+Pembetulan ialah peristiwa baharu; baris audit sedia ada tidak ditulis ganti.
 
-## 10. Non-functional requirements and observability
+## 10. Keperluan bukan fungsi dan kebolehperhatian
 
-| Area | Requirement | Verification |
+| Bidang | Keperluan | Pengesahan |
 | :--- | :--- | :--- |
-| UC-2 correctness | Score/label/action follow the design weights and cut-offs | `tests/test_reman.py` (34 passing) |
-| UC-2 privacy | No raw name or `catatan` in JSON/exports | Tests assert masking and absence |
-| UC-2 portability | No runtime dependency beyond the PCAI starter | Standard-library xlsx/pdf writers; hash-locked image unchanged |
-| UC-1 integrity | Duplicate `nombor_reman` and blank dates flagged, not merged | `dup_set` / import report |
-| UC-4 determinism | Narrative numbers trace to the KPI snapshot | `trace_narrative_numbers`; `test_uc4_all_phases.py` |
-| UC-4 privacy | KPI snapshot is PII-free | `assert_kpi_payload_safe`; `test_uc4_phase1.py` |
-| Operability | UC-2 exposes `/health/live` and `/health/ready` | Starter endpoints unchanged |
+| Ketepatan UC-2 | Skor/label/tindakan mengikut pemberat dan potongan reka bentuk | `tests/test_reman.py` (34 lulus) |
+| Privasi UC-2 | Tiada nama mentah atau `catatan` dalam JSON/eksport | Ujian menegaskan penopengan dan ketiadaan |
+| Kebolehbawaan UC-2 | Tiada kebergantungan runtime melebihi permulaan PCAI | Penulis xlsx/pdf pustaka piawai; imej berkunci-hash tidak berubah |
+| Integriti UC-1 | `nombor_reman` duplikat dan tarikh kosong ditandakan, tidak digabung | `dup_set` / laporan import |
+| Determinisme UC-4 | Angka naratif dijejaki ke petikan KPI | `trace_narrative_numbers`; `test_uc4_all_phases.py` |
+| Privasi UC-4 | Petikan KPI bebas PII | `assert_kpi_payload_safe`; `test_uc4_phase1.py` |
+| Kebolehoperasian | UC-2 menyediakan `/health/live` dan `/health/ready` | Titik hujung permulaan tidak berubah |
 
-Required metrics (not yet wired): `uc2_requests_total{outcome}`, `uc2_export_total{format}`,
+Metrik diperlukan (belum disambung): `uc2_requests_total{outcome}`, `uc2_export_total{format}`,
 `uc4_reports_total{status}`, `import_rows_total{result}`, `db_errors_total`.
 
-## 11. Architectural trade-offs
+## 11. Pertukaran seni bina
 
-| Decision | Chosen approach | Alternative | Rationale |
+| Keputusan | Pendekatan dipilih | Alternatif | Rasional |
 | :--- | :--- | :--- | :--- |
-| UC-1 storage | SQLite | PostgreSQL | Zero-setup for the workshop; SQLite is enough for one depot team. |
-| UC-1 UI | Server template + single-file HTML | SPA framework | Works offline and inside VS Code with no build step. |
-| UC-2 runtime | FastAPI on the PCAI starter | Extend the Flask app | Deployable to PCAI with oauth2-proxy and no new dependencies. |
-| UC-2 scoring | Deterministic rules | ML model | Explainable, reviewable, works on day-one data; ML deferred to v2. |
-| UC-2 xlsx/pdf | Standard library | pandas/openpyxl/reportlab | Keeps the hash-locked image valid; no supply-chain growth. |
-| UC-4 narrative | LLM with deterministic fallback + numeric trace | LLM only | Reports must be reproducible and every number sourced. |
-| Separate services | One deliverable per branch | Single monolith | Each use case ships and is reviewed independently. |
+| Stor UC-1 | SQLite | PostgreSQL | Sifar persediaan untuk bengkel; SQLite memadai untuk satu pasukan depot. |
+| UI UC-1 | Templat pelayan + HTML satu fail | Kerangka SPA | Berfungsi luar talian dan dalam VS Code tanpa langkah bina. |
+| Runtime UC-2 | FastAPI pada permulaan PCAI | Lanjutkan aplikasi Flask | Boleh digunakan pada PCAI dengan oauth2-proxy dan tiada kebergantungan baharu. |
+| Skor UC-2 | Peraturan deterministik | Model ML | Boleh dijelaskan, boleh disemak, berfungsi pada data hari pertama; ML ditunda ke v2. |
+| xlsx/pdf UC-2 | Pustaka piawai | pandas/openpyxl/reportlab | Mengekalkan imej berkunci-hash sah; tiada pertumbuhan rantaian bekalan. |
+| Naratif UC-4 | LLM dengan gantian deterministik + jejak angka | LLM sahaja | Laporan mesti boleh dihasilkan semula dan setiap angka bersumber. |
+| Perkhidmatan berasingan | Satu hasil bagi setiap cabang | Monolit tunggal | Setiap kes penggunaan dihantar dan disemak secara berasingan. |
 
-## 12. Implementation and verification plan
+## 12. Pelan pelaksanaan dan pengesahan
 
-Implementation proceeds in verifiable slices per branch:
+Pelaksanaan berjalan dalam kepingan yang boleh disahkan bagi setiap cabang:
 
-1. **UC-1 (`main`):** approve field list and roles → import/clean → dashboard → exports → audit.
-2. **UC-2 (`IKAWAL-UC2`):** approve weights/labels/actions → engine → store → endpoints → UI → exports.
-3. **UC-4 (`UC4`):** approve KPI set → snapshot + privacy guard → narrative → draft/release → exports.
-4. **UC-3 (not started):** approve intake/headcount model and exit-date capture before any build.
+1. **UC-1 (`main`):** luluskan senarai medan dan peranan → import/bersih → papan pemuka → eksport → audit.
+2. **UC-2 (`IKAWAL-UC2`):** luluskan pemberat/label/tindakan → enjin → stor → titik hujung → UI → eksport.
+3. **UC-4 (`UC4`):** luluskan set KPI → petikan + pengawal privasi → naratif → draf/pelancaran → eksport.
+4. **UC-3 (belum bermula):** luluskan model kemasukan/bilangan kepala dan penangkapan tarikh keluar sebelum sebarang binaan.
 
-Minimum verification cases:
+Kes pengesahan minimum:
 
-- UC-1: import the bundled workbook; duplicates and blank dates are flagged; exports match the screen.
-- UC-2: overdue + non-final ⇒ `+40`; ≤3 days ⇒ `+25`; pending ⇒ `+15`; score caps at 100; label
-  thresholds 60/35/15; exports contain masked names and no `catatan`; missing register ⇒ `503`.
-- UC-4: KPI snapshot is PII-free; narrative numbers trace to the snapshot; edit resets to draft;
-  release sets `released`; PDF/XLSX download works.
-- Cross-cutting: no secret in the repo; UC-2 image builds with the unchanged lock file.
+- UC-1: import buku kerja terbina; duplikat dan tarikh kosong ditandakan; eksport sepadan dengan skrin.
+- UC-2: tertunggak + belum muktamad ⇒ `+40`; ≤3 hari ⇒ `+25`; belum muktamad ⇒ `+15`; skor dihadkan
+  pada 100; potongan label 60/35/15; eksport mengandungi nama ditopeng dan tiada `catatan`; daftar
+  tiada ⇒ `503`.
+- UC-4: petikan KPI bebas PII; angka naratif dijejaki ke petikan; suntingan set semula kepada draf;
+  pelancaran menetapkan `released`; muat turun PDF/XLSX berfungsi.
+- Merentas: tiada rahsia dalam repo; imej UC-2 terbina dengan fail kunci yang tidak berubah.
 
-**Current test coverage:** UC-2 = 34 tests; UC-4 = 2 test files; UC-1 = **none** (gap → §14).
+**Liputan ujian semasa:** UC-2 = 34 ujian; UC-4 = 2 fail ujian; UC-1 = **tiada** (jurang → §14).
 
-## 13. Pre-implementation sign-off checklist
+## 13. Senarai semak kelulusan pra-pelaksanaan
 
-- [ ] **PRD approved:** objective, user stories, acceptance criteria, out-of-scope signed off.
-- [ ] **System mapped:** architecture and sequence diagrams reviewed by engineering and operations.
-- [ ] **Data and APIs set:** ERD, constraints, and an OpenAPI contract published (UC-1 and UC-2).
-- [ ] **TDD signed off:** UC-2 weights/labels/actions, masking rules, UC-4 privacy guard, retention.
-- [ ] Terminology and language agreed (Bahasa Melayu for officer-facing UI).
-- [ ] Automated tests for UC-1 (import, CRUD, export) added.
-- [ ] Retention/archival and key management approved by Security / Records Management.
-- [ ] Non-production data and environment available for each branch.
+- [ ] **PRD diluluskan:** objektif, cerita pengguna, kriteria penerimaan, di luar skop ditandatangani.
+- [ ] **Sistem dipetakan:** gambar rajah seni bina dan jujukan disemak oleh kejuruteraan dan operasi.
+- [ ] **Data dan API siap:** ERD, kekangan, dan kontrak OpenAPI diterbitkan (UC-1 dan UC-2).
+- [ ] **TDD ditandatangani:** pemberat/label/tindakan UC-2, peraturan penopengan, pengawal privasi UC-4, pengekalan.
+- [ ] Istilah dan bahasa dipersetujui (Bahasa Melayu untuk UI berhadapan pegawai).
+- [ ] Ujian automatik untuk UC-1 (import, CRUD, eksport) ditambah.
+- [ ] Pengekalan/arkib dan pengurusan kunci diluluskan oleh Keselamatan / Pengurusan Rekod.
+- [ ] Data dan persekitaran bukan produksi tersedia bagi setiap cabang.
 
-## 14. Open decisions and change control
+## 14. Keputusan terbuka dan kawalan perubahan
 
-| Decision | Owner | Due before |
+| Keputusan | Pemilik | Perlu sebelum |
 | :--- | :--- | :--- |
-| Publish OpenAPI 3.0 + Swagger UI for UC-1 and UC-2 endpoints | Systems Engineering | First external integration |
-| UC-2 risk weights, label cut-offs and action list sign-off | Depot Head / Legal | UC-2 go-live |
-| Retention/archival for personal data and audit events | Records Management + Security | Production acceptance |
-| Canonical register location and deployment data path (`APP_REMAN_FILE` / mounted `data/`) | Operations / ICT | UC-2 deployment |
-| UC-3 intake/headcount model and exit-date capture | Operations / Data Owner | UC-3 kick-off |
-| Automated test suite for the `main` Flask app | Systems Engineering | Next release |
-| Single sourced narrative provider for UC-4 (on-prem LLM vs Bedrock) | Integration Owner | UC-4 pilot |
+| Terbitkan OpenAPI 3.0 + Swagger UI bagi titik hujung UC-1 dan UC-2 | Kejuruteraan Sistem | Integrasi luaran pertama |
+| Kelulusan pemberat risiko, potongan label dan senarai tindakan UC-2 | Ketua Depot / Undang-undang | Pelancaran UC-2 |
+| Pengekalan/arkib bagi data peribadi dan peristiwa audit | Pengurusan Rekod + Keselamatan | Penerimaan produksi |
+| Lokasi daftar kanonik dan laluan data pelaksanaan (`APP_REMAN_FILE` / `data/` tergantung) | Operasi / ICT | Pelaksanaan UC-2 |
+| Model kemasukan/bilangan kepala UC-3 dan penangkapan tarikh keluar | Operasi / Pemilik Data | Permulaan UC-3 |
+| Suite ujian automatik untuk aplikasi Flask `main` | Kejuruteraan Sistem | Keluaran seterusnya |
+| Penyedia naratif sumber tunggal untuk UC-4 (LLM di premis vs Bedrock) | Pemilik Integrasi | Perintis UC-4 |
 
-Any change to an endpoint, status/label code, scoring weight, or audit field requires an updated TDD
-version, review of affected diagrams/tests, and explicit sign-off before implementation proceeds.
+Sebarang perubahan kepada titik hujung, kod status/label, pemberat skor, atau medan audit memerlukan
+versi TDD yang dikemas kini, semakan gambar rajah/ujian yang terjejas, dan kelulusan eksplisit sebelum
+pelaksanaan diteruskan.
 
-## Appendix A — Branch map
+## Lampiran A — Peta cabang
 
-| Branch | Local | Remote | Contains |
+| Cabang | Tempatan | Jauh | Mengandungi |
 | :--- | :--- | :--- | :--- |
-| `main` | yes | `origin/main` | Flask app, `templates/`, standalone HTML apps, `src/`, dataset, design HTML |
-| `IKAWAL-UC2` | yes | `origin/IKAWAL-UC2` | `main` + `bd94837`, `1441f60`, `ced4019`, merge `4f9f7ec` (`smartdepot/`) |
-| `UC4` | no | `origin/UC4` | `main@649ccef` + `91455c8` (`uc4/`, tests, blueprint hook) |
-| `UC2` | yes | — | reset to `main` (retired) |
+| `main` | ya | `origin/main` | Aplikasi Flask, `templates/`, aplikasi HTML berdiri sendiri, `src/`, set data, HTML reka bentuk |
+| `IKAWAL-UC2` | ya | `origin/IKAWAL-UC2` | `main` + `bd94837`, `1441f60`, `ced4019`, gabungan `4f9f7ec` (`smartdepot/`) |
+| `UC4` | tidak | `origin/UC4` | `main@649ccef` + `91455c8` (`uc4/`, ujian, cangkuk blueprint) |
+| `UC2` | ya | — | set semula kepada `main` (dibersarakan) |
 
-## Appendix B — Use case → code map
+## Lampiran B — Peta kes penggunaan → kod
 
-| Use case | Entry | Core code | Tests |
+| Kes penggunaan | Pintu masuk | Kod teras | Ujian |
 | :--- | :--- | :--- | :--- |
-| UC-1 | `app.py` (:5000), `app.html` | `app.py` (clean/CRUD/export), `templates/index.html`, `src/build_*.py` | none |
+| UC-1 | `app.py` (:5000), `app.html` | `app.py` (bersih/CRUD/eksport), `templates/index.html`, `src/build_*.py` | tiada |
 | UC-2 | `smartdepot/app/main.py` (:8000) | `reman.py`, `store.py`, `xlsx.py`, `pdf.py`, `agent.py`, `static/` | `smartdepot/tests/test_reman.py` |
-| UC-4 | `/uc4` on Flask | `uc4/phase1_kpi`, `phase2_narrative`, `phase3_reports`, `phase4_ui` | `tests/test_uc4_phase1.py`, `tests/test_uc4_all_phases.py` |
-| UC-3 | — | adapter stub in `uc4/phase1_kpi/engine.py` only | none |
+| UC-4 | `/uc4` pada Flask | `uc4/phase1_kpi`, `phase2_narrative`, `phase3_reports`, `phase4_ui` | `tests/test_uc4_phase1.py`, `tests/test_uc4_all_phases.py` |
+| UC-3 | — | rangka penyesuai dalam `uc4/phase1_kpi/engine.py` sahaja | tiada |
