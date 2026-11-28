@@ -17,6 +17,7 @@ GET  /api/engine/report      generate the monthly report (JSON + file paths)
 
 from __future__ import annotations
 
+import base64
 import datetime as dt
 import json
 import sqlite3
@@ -182,6 +183,13 @@ def uc3_page():
     horizon_total = round(sum((d.get("total_horizon") or 0) for d in real), 1)
     payload = _json.dumps(data, ensure_ascii=False)
 
+    logo_path = Path(__file__).resolve().parent / "assets" / "uc3_logo.png"
+    if logo_path.exists():
+        _b64 = base64.b64encode(logo_path.read_bytes()).decode("ascii")
+        logo_html = f'<img class="uc3-logo" alt="Iringkawal" src="data:image/png;base64,{_b64}">'
+    else:
+        logo_html = '<div class="crest">IB</div>'
+
     cards = "".join(
         f'<section class="card"><div class="chead"><h3>{_html.escape(d["display"])}</h3>'
         f'<span class="badge">{_html.escape(str(d["model"]))}'
@@ -214,6 +222,9 @@ def uc3_page():
  header.hero h1{{margin:0 0 6px;font-size:24px;}} .eyebrow{{text-transform:uppercase;letter-spacing:.16em;font-size:11.5px;font-weight:700;opacity:.85;margin:0 0 6px;}}
  header.hero p{{margin:0;opacity:.95;max-width:80ch;}}
  header.hero a{{color:#dbe9ff;}}
+ .brandrow{{display:flex;align-items:center;gap:16px;margin-bottom:10px;}}
+ .uc3-logo{{height:52px;width:auto;background:#fff;border-radius:10px;padding:6px 10px;box-shadow:0 3px 10px rgba(0,0,0,.18);}}
+ .crest{{width:46px;height:46px;border-radius:10px;background:#fff;color:#17335c;font-weight:800;display:flex;align-items:center;justify-content:center;font-size:18px;}}
  .kpis{{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:18px 0;}}
  .kpi{{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px 16px;}}
  .kpi b{{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);}}
@@ -230,8 +241,10 @@ def uc3_page():
  @media(max-width:760px){{.kpis{{grid-template-columns:repeat(2,1fr);}}}}
 </style></head><body><div class="wrap-page">
 <header class="hero">
-  <p class="eyebrow">Use case 3 · E8 · UC-3</p>
-  <h1>Ramalan Populasi Depot</h1>
+  <div class="brandrow">{logo_html}<div>
+    <p class="eyebrow">Use case 3 · E8 · UC-3</p>
+    <h1>Ramalan Populasi Depot</h1>
+  </div></div>
   <p>Ramalan kemasukan reman mingguan per depot (dan keseluruhan). Garis pepejal = sejarah sebenar;
      garis putus-putus = ramalan; jalur = selang keyakinan 95%. Model dipilih automatik mengikut ralat back-test (MAPE).
      <br><span class="links"><a href="/">← Dashboard</a><a href="/engine">Enjin (UC-2/3/4)</a><a href="/api/engine/forecast/dashboard">JSON</a></span></p>
