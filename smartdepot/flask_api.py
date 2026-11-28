@@ -185,12 +185,10 @@ def uc3_page():
 
     logo_path = Path(__file__).resolve().parent / "assets" / "uc3_logo.png"
     if logo_path.exists():
-        _src = "data:image/png;base64," + base64.b64encode(logo_path.read_bytes()).decode("ascii")
-        logo_html = f'<img class="uc3-logo" alt="Iringkawal" src="{_src}">'
-        kpi_ico = f'<img class="kpi-ico" alt="" src="{_src}">'
+        _b64 = base64.b64encode(logo_path.read_bytes()).decode("ascii")
+        logo_html = f'<img class="uc3-logo" alt="Iringkawal" src="data:image/png;base64,{_b64}">'
     else:
         logo_html = '<div class="crest">IB</div>'
-        kpi_ico = ''
 
     cards = "".join(
         f'<section class="card"><div class="chead"><h3>{_html.escape(d["display"])}</h3>'
@@ -231,7 +229,6 @@ def uc3_page():
  .kpi{{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px 16px;}}
  .kpi b{{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);}}
  .kpi span{{font-size:1.8rem;font-weight:800;color:#12203a;}}
- .kpi-ico{{display:block;height:20px;width:auto;margin:0 0 8px;}}
  .card{{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin:16px 0;}}
  .chead{{display:flex;justify-content:space-between;align-items:center;}} .chead h3{{margin:0;}}
  .badge{{background:#e8f0fb;color:var(--brand);border-radius:999px;padding:3px 12px;font-size:.72rem;font-weight:700;}}
@@ -254,10 +251,10 @@ def uc3_page():
 </header>
 
 <div class="kpis">
-  <div class="kpi">{kpi_ico}<b>Depot diramal</b><span>{len(real)}</span></div>
-  <div class="kpi">{kpi_ico}<b>Kemasukan minggu depan</b><span>{nxt:g}</span></div>
-  <div class="kpi">{kpi_ico}<b>Jumlah {len(depots[0]['forecast']) if depots else 0} minggu</b><span>{horizon_total:g}</span></div>
-  <div class="kpi">{kpi_ico}<b>Penduduk depot semasa</b><span>{data.get('total_headcount', 0)}</span></div>
+  <div class="kpi"><b>Depot diramal</b><span>{len(real)}</span></div>
+  <div class="kpi"><b>Kemasukan minggu depan</b><span>{nxt:g}</span></div>
+  <div class="kpi"><b>Jumlah {len(depots[0]['forecast']) if depots else 0} minggu</b><span>{horizon_total:g}</span></div>
+  <div class="kpi"><b>Penduduk depot semasa</b><span>{data.get('total_headcount', 0)}</span></div>
 </div>
 
 <section class="card">
