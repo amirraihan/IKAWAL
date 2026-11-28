@@ -183,6 +183,16 @@ table.grid tbody tr:last-child td{border-bottom:0}
 .pill-bebas{background:#eaf4ee;color:var(--ok);border:1px solid #cfe6da}
 .pill-other{background:#faf3e6;color:var(--warn);border:1px solid #efe0c4}
 .pill-empty{background:#f3f4f6;color:#98a2b3;border:1px solid #e8eaee}
+/* --- SmartDepot engine (UC-2) derived columns --- */
+.risk-pill{display:inline-block;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:800;letter-spacing:.2px;white-space:nowrap}
+.risk-kritikal{background:#fbe9e9;color:#8f2f2f;border:1px solid #f0cfcf}
+.risk-tinggi{background:#fdf1e3;color:#9a6a12;border:1px solid #efdcc0}
+.risk-sederhana{background:#e9f1fb;color:#22558f;border:1px solid #cfe0f3}
+.risk-rendah{background:#eef1f6;color:#5c6b84;border:1px solid #e0e6ef}
+.tier-overdue{color:var(--danger);font-weight:800}
+.tier-soon{color:var(--warn);font-weight:800}
+.tier-none{color:#b6bfcc}
+td.cadangan{max-width:320px;white-space:normal;font-size:12px;color:#41536c}
 .rowactions{display:flex;gap:7px}
 
 .pagination{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:16px;justify-content:space-between}
@@ -844,6 +854,65 @@ function tindakanPillClass(v){
 }
 
 /* =======================================================================
+   SmartDepot engine (UC-2): risk + alert + recommendation (derived, advisory)
+   Mirror of smartdepot/engines (rules-v1). Not scoring nationality/race.
+   ======================================================================= */
+const TINDAKAN_FINAL = ['USIR','USIR + BLI','USIR + RAI','BATAL PAS','BEBAS DENGAN AMARAN'];
+function classifyTindakan(v){
+  const t = normText(v);
+  if(!t) return 'BELUM MUKTAMAD';
+  if(t.indexOf('BATAL')!==-1) return 'BATAL PAS';
+  if(t.indexOf('BEBAS')!==-1) return 'BEBAS DENGAN AMARAN';
+  if(t.indexOf('USIR')!==-1 || t.indexOf('USR')!==-1 || t.indexOf('RAI')!==-1 || t.indexOf('BLI')!==-1 || t.indexOf('DEPORT')!==-1){
+    if(t.indexOf('BLI')!==-1) return 'USIR + BLI';
+    if(t.indexOf('RAI')!==-1) return 'USIR + RAI';
+    return 'USIR';
+  }
+  return 'BELUM MUKTAMAD';
+}
+function riskLabelFor(score){ if(score>=60) return 'Kritikal'; if(score>=35) return 'Tinggi'; if(score>=15) return 'Sederhana'; return 'Rendah'; }
+function engineFor(r){
+  const kod = classifyTindakan(r.tindakan);
+  const notFinal = TINDAKAN_FINAL.indexOf(kod)===-1;
+  const days = daysTo(r.tarikhTamat);              // hari berbaki (null jika tiada tarikh)
+  const dM = toDate(r.tarikhMasuk), dE = toDate(r.tarikhTamat);
+  const tempoh = (dM && dE) ? Math.round((dE-dM)/86400000)+1 : null;
+  const umur = parseInt(r.umur,10) || 0;
+  const ulang = /(TANGKAP SEMULA|TAHAN SEMULA|ULANG|BERULANG)/.test(normText(r.catatan));
+  const gap = !normText(r.noReman) || !normText(r.nomborFail);
+  let score = 0;
+  if(notFinal && days!==null && days<=0) score += 40;
+  else if(notFinal && days!==null && days<=3) score += 25;
+  if(kod==='BELUM MUKTAMAD') score += 15;
+  if(tempoh && tempoh>14) score += 10;
+  if(ulang) score += 10;
+  if(umur>=60) score += 10;
+  if(gap) score += 10;
+  score = Math.min(score,100);
+  const label = riskLabelFor(score);
+  let tier = 'none';
+  if(notFinal && days!==null){
+    if(days<0) tier='overdue'; else if(days===0) tier='due_today'; else if(days<=3) tier='soon';
+  }
+  let action = 'Monitor.';
+  if(!notFinal) action = 'Kes selesai — sahkan dokumen dan tutup fail.';
+  else if(label==='Kritikal') action = 'Segera (hari ini): rekod TINDAKAN (usir/bebas) atau mohon lanjutan reman; maklum Ketua Depot.';
+  else if(label==='Tinggi') action = 'Dalam 48 jam: sediakan draf lanjutan atau selesaikan langkah DNA/rayuan.';
+  else if(label==='Sederhana') action = 'Minggu ini: betulkan jurang admin; sahkan pengaturan usir.';
+  return {kod, score, label, tier, action, days};
+}
+function riskPillHtml(label){
+  if(!label) return '<span class="tier-none">-</span>';
+  return '<span class="risk-pill risk-'+label.toLowerCase()+'">'+esc(label)+'</span>';
+}
+function alertCellHtml(en){
+  if(en.tier==='none') return '<span class="tier-none">-</span>';
+  if(en.tier==='overdue') return '<span class="tier-overdue">Tertunggak</span>';
+  if(en.tier==='due_today') return '<span class="tier-overdue">Tamat hari ini</span>';
+  return '<span class="tier-soon">'+esc(en.days)+' hari</span>';
+}
+
+/* =======================================================================
    LOGIN
    ======================================================================= */
 function initLogin(){
@@ -1034,7 +1103,7 @@ function renderSenarai(){
   document.getElementById('senaraiCount').textContent = rows.length.toLocaleString('en-MY') + ' rekod';
   document.getElementById('senaraiSub').textContent = isPegawai()
     ? 'Fail untuk pegawai: '+currentUser.name
-    : 'Rekod penuh tahanan (15 kolum)';
+    : 'Rekod penuh tahanan (18 kolum: 15 + risiko/amaran/cadangan)';
 
   const totalPages = Math.max(1, Math.ceil(rows.length / senState.pageSize));
   if(senState.page > totalPages) senState.page = totalPages;
@@ -1055,14 +1124,16 @@ function renderSenarai(){
         <button class="btn btn-ghost btn-sm" data-edit="${r._id}">Kemaskini</button>
         <button class="btn btn-danger btn-sm" data-del="${r._id}">Padam</button>
       </div></td>` : '';
-    return `<tr>${tds}${act}</tr>`;
-  }).join('') || `<tr><td colspan="${COLS.length+(admin?1:0)}"><div class="empty-state"><div class="big">Tiada rekod dijumpai</div>Cuba ubah carian anda.</div></td></tr>`;
+    const en = engineFor(r);
+    const eng = `<td>${riskPillHtml(en.label)}</td><td class="nowrap">${alertCellHtml(en)}</td><td class="cadangan">${esc(en.action)}</td>`;
+    return `<tr>${tds}${eng}${act}</tr>`;
+  }).join('') || `<tr><td colspan="${COLS.length+3+(admin?1:0)}"><div class="empty-state"><div class="big">Tiada rekod dijumpai</div>Cuba ubah carian anda.</div></td></tr>`;
 
   // rebuild whole table (head + body)
   const th = COLS.map(c=>{
     const sorted = senState.sortKey===c.k;
     return `<th data-sort="${c.k}" class="${sorted?'sorted':''}">${c.label}<span class="arrow">${sorted?(senState.sortDir>0?'▲':'▼'):'▲'}</span></th>`;
-  }).join('') + (admin?'<th>AKSI</th>':'');
+  }).join('') + '<th>RISIKO</th><th>AMARAN</th><th>CADANGAN</th>' + (admin?'<th>AKSI</th>':'');
   document.getElementById('senaraiTable').innerHTML = `<thead><tr>${th}</tr></thead><tbody>${tbody}</tbody>`;
 
   // bind actions
